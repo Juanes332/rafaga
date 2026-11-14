@@ -1,0 +1,10 @@
+* text=auto
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.pdf binary
+*.yaml text eol=lf
+Dockerfile text eol=lf
+.env.example text eol=lf

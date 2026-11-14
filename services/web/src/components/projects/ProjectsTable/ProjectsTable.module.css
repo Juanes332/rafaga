@@ -1,0 +1,33 @@
+.table {
+  min-width: 560px;
+}
+
+.row:hover {
+  background: var(--color-accent-wash);
+}
+
+.name {
+  width: 48%;
+}
+
+.name a {
+  color: var(--color-ink);
+  font-weight: 500;
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.name a:hover {
+  text-decoration: underline;
+}
+
+.has_location,
+.updated_at {
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}
+
+.actions {
+  width: 48px;
+  text-align: right;
+}

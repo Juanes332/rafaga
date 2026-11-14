@@ -1,0 +1,4953 @@
+# Ráfaga OpenAPI contract (Phase 2). Generated from the architecture plan; source of truth for paths and schemas.
+openapi: 3.1.0
+info:
+  title: Ráfaga API
+  version: 1.0.0
+  description: Contract between services/api, services/web and (for health) services/solver. Base path /api/v1. Every route
+    requires a bearer JWT except the PUBLIC_PATHS (/health, /api/v1/auth/setup-status, /api/v1/auth/setup, /api/v1/auth/login).
+    A foreign or missing resource returns a byte-identical 404. Errors use ErrorBody. Error codes per operation are listed
+    in x-error-codes; x-roles lists required roles (reviewer writes → 403 forbidden). No preset location exists anywhere (BR-18).
+servers:
+- url: /
+  description: Relative; the SPA resolves the host from /config.json (ADR-05)
+security:
+- bearerAuth: []
+tags:
+- name: system
+- name: auth
+- name: users
+- name: projects
+- name: shares
+- name: geo
+- name: wind
+- name: geometry
+- name: backgrounds
+- name: alternatives
+- name: facades
+- name: scene
+- name: simulations
+- name: jobs
+- name: results
+- name: comfort
+- name: comparisons
+- name: exports
+- name: reports
+- name: settings
+- name: templates
+- name: solver (internal, not published)
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags:
+      - system
+      summary: API liveness and DB check (public, not rate limited)
+      security: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      x-error-codes:
+      - db down → 503 status degraded
+  /api/v1/auth/setup-status:
+    get:
+      operationId: getSetupStatus
+      tags:
+      - auth
+      summary: Whether the first-run account must be created
+      security: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupStatus'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/auth/setup:
+    post:
+      operationId: setupFirstAccount
+      tags:
+      - auth
+      summary: Create the first (architect) account while no users exist
+      description: Runs under pg_advisory_xact_lock; only succeeds when the users table is empty.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 setup_already_done
+      - 422 password_too_short
+      - 429 rate_limited (RATE_LIMIT_LOGIN_PER_MINUTE)
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags:
+      - auth
+      summary: Exchange credentials for a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 401 invalid_credentials (identical for unknown email and wrong password)
+      - 429 rate_limited (10/min/address)
+  /api/v1/auth/me:
+    get:
+      operationId: getMe
+      tags:
+      - auth
+      summary: Current user
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      tags:
+      - users
+      summary: List local users
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 403 forbidden
+      x-roles:
+      - architect
+    post:
+      operationId: createUser
+      tags:
+      - users
+      summary: Create a local user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 403 forbidden
+      - 409 email_taken
+      - 422 password_too_short
+      x-roles:
+      - architect
+  /api/v1/users/{user_id}:
+    delete:
+      operationId: deleteUser
+      tags:
+      - users
+      summary: Delete another user and their shares
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 user_not_found
+      - 409 cannot_delete_self
+      x-roles:
+      - architect
+  /api/v1/system/status:
+    get:
+      operationId: getSystemStatus
+      tags:
+      - system
+      summary: Service health and compute device
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/projects:
+    get:
+      operationId: listProjects
+      tags:
+      - projects
+      summary: Projects owned by or shared with the caller (newest first)
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createProject
+      tags:
+      - projects
+      summary: Create a project without location
+      description: Also creates the base alternative, empty geometry v1 and a wind_climates row (z0 1.0, no rose).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 403 forbidden
+      x-roles:
+      - architect
+  /api/v1/projects/{project_id}:
+    get:
+      operationId: getProject
+      tags:
+      - projects
+      summary: Get a project
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 project_not_found (byte-identical for foreign and missing ids)
+    patch:
+      operationId: updateProject
+      tags:
+      - projects
+      summary: Rename or set analysis height
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectPatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 403 forbidden
+      - 404 project_not_found
+    delete:
+      operationId: deleteProject
+      tags:
+      - projects
+      summary: Delete project, cancel its jobs, remove its files
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 403 forbidden
+      - 404 project_not_found
+  /api/v1/projects/{project_id}/duplicate:
+    post:
+      operationId: duplicateProject
+      tags:
+      - projects
+      summary: Duplicate as 'Copia de <name>' (no jobs/results)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 project_not_found
+  /api/v1/projects/{project_id}/location:
+    put:
+      operationId: setProjectLocation
+      tags:
+      - projects
+      summary: Set location; fetch elevation unless given; compute ISA density
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 coordinates_out_of_range
+      - '503 elevation_unavailable (hint: enter elevation manually)'
+  /api/v1/projects/{project_id}/shares:
+    get:
+      operationId: listShares
+      tags:
+      - shares
+      summary: Reviewers with access
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Share'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-roles:
+      - architect
+  /api/v1/projects/{project_id}/shares/{user_id}:
+    put:
+      operationId: grantShare
+      tags:
+      - shares
+      summary: Grant read access (idempotent)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 project_not_found
+      - 404 user_not_found
+      x-roles:
+      - architect
+    delete:
+      operationId: revokeShare
+      tags:
+      - shares
+      summary: Revoke read access
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-roles:
+      - architect
+  /api/v1/geo/search:
+    get:
+      operationId: searchPlaces
+      tags:
+      - geo
+      summary: Open-Meteo geocoding proxy (cached 30 d)
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeoResult'
+                maxItems: 10
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 503 geocoding_unavailable
+  /api/v1/geo/elevation:
+    get:
+      operationId: getElevation
+      tags:
+      - geo
+      summary: Elevation (coords rounded to 4 decimals) and ISA density
+      parameters:
+      - name: lat
+        in: query
+        required: true
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lon
+        in: query
+        required: true
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Elevation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 coordinates_out_of_range
+      - 503 elevation_unavailable
+  /api/v1/tiles/{z}/{x}/{y}.png:
+    get:
+      operationId: getTile
+      tags:
+      - geo
+      summary: Cached OSM raster tile proxy
+      parameters:
+      - name: z
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 19
+      - name: x
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 0
+      - name: y
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 validation_error (z outside 0-19 or x/y outside 2^z)
+      - 503 tile_unavailable
+      - 429 rate_limited (RATE_LIMIT_TILES_PER_MINUTE)
+  /api/v1/terrain-categories:
+    get:
+      operationId: listTerrainCategories
+      tags:
+      - wind
+      summary: BR-08 roughness categories
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TerrainCategory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/projects/{project_id}/wind:
+    get:
+      operationId: getWind
+      tags:
+      - wind
+      summary: Wind climate of the project
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindClimate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    patch:
+      operationId: updateWind
+      tags:
+      - wind
+      summary: Source, manual wind, terrain category, z0
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WindPatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindClimate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 rose_missing
+  /api/v1/projects/{project_id}/wind/era5:
+    post:
+      operationId: fetchEra5Rose
+      tags:
+      - wind
+      summary: Fetch ERA5 hourly wind and build the 16-sector rose
+      description: 'Cache key: coordinates rounded to 0.1° + period; TTL 365 d.'
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Era5Request'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindClimate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 location_missing
+      - '503 era5_unavailable (hint: manual entry)'
+  /api/v1/projects/{project_id}/geometry:
+    get:
+      operationId: getGeometry
+      tags:
+      - geometry
+      summary: Base-case buildings
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geometry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    put:
+      operationId: putGeometry
+      tags:
+      - geometry
+      summary: Replace the building set
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeometryPut'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geometry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 version_conflict
+      - 409 base_locked (alternatives exist, confirm_base_change not true)
+  /api/v1/projects/{project_id}/geometry/validate:
+    post:
+      operationId: validateGeometry
+      tags:
+      - geometry
+      summary: Validate without saving (BR-14)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeometryValidateRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeometryValidation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/projects/{project_id}/geometry/imports:
+    post:
+      operationId: importGeometry
+      tags:
+      - geometry
+      summary: Import DXF/STL/OBJ (R1) or IFC (R2)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                unit:
+                  type: string
+                  enum:
+                  - auto
+                  - m
+                  - cm
+                  - mm
+                  - ft
+                  default: auto
+                mode:
+                  type: string
+                  enum:
+                  - append
+                  - replace
+                  default: append
+                center:
+                  type: boolean
+                  default: true
+              required:
+              - file
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 413 upload_too_large (100 MB)
+      - 422 import_failed (cause + fix hint; project unchanged)
+      - 422 unsupported_format
+      - 409 base_locked
+  /api/v1/projects/{project_id}/backgrounds:
+    post:
+      operationId: uploadBackground
+      tags:
+      - backgrounds
+      summary: Upload PNG/JPG/PDF trace plan (≤25 MB)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+              - file
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackgroundPlan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 413 upload_too_large (25 MB, limit in details)
+      - 422 unsupported_format
+    get:
+      operationId: listBackgrounds
+      tags:
+      - backgrounds
+      summary: List trace plans
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BackgroundPlan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/backgrounds/{background_id}/pages/{page}.png:
+    get:
+      operationId: getBackgroundPage
+      tags:
+      - backgrounds
+      summary: Rasterised page (≤4096 px long side)
+      parameters:
+      - name: background_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 background_not_found
+      - 404 page_not_found
+  /api/v1/backgrounds/{background_id}:
+    patch:
+      operationId: updateBackground
+      tags:
+      - backgrounds
+      summary: Calibrate, choose page, opacity
+      parameters:
+      - name: background_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackgroundPatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackgroundPlan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    delete:
+      operationId: deleteBackground
+      tags:
+      - backgrounds
+      summary: Delete trace plan and file
+      parameters:
+      - name: background_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/projects/{project_id}/alternatives:
+    get:
+      operationId: listAlternatives
+      tags:
+      - alternatives
+      summary: Base first, then by position
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alternative'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createAlternative
+      tags:
+      - alternatives
+      summary: Derive an alternative
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlternativeCreate'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alternative'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 alternatives_limit (limit in details)
+  /api/v1/alternatives/{alternative_id}:
+    patch:
+      operationId: updateAlternative
+      tags:
+      - alternatives
+      summary: Rename or reorder
+      parameters:
+      - name: alternative_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlternativePatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alternative'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 alternative_not_found
+    delete:
+      operationId: deleteAlternative
+      tags:
+      - alternatives
+      summary: Delete non-base alternative with results
+      parameters:
+      - name: alternative_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 base_undeletable
+  /api/v1/facade-strategies:
+    get:
+      operationId: listFacadeStrategies
+      tags:
+      - facades
+      summary: 'Strategy catalogue: parameters, units, ranges, defaults, help keys'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FacadeStrategy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/alternatives/{alternative_id}/facade-elements:
+    get:
+      operationId: listFacadeElements
+      tags:
+      - facades
+      summary: Facade elements
+      parameters:
+      - name: alternative_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FacadeElement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createFacadeElement
+      tags:
+      - facades
+      summary: Apply a strategy to a building edge (values clamped, adjustments reported)
+      parameters:
+      - name: alternative_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacadeElementCreate'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacadeElementWithAdjustments'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 edge_not_found
+      - 409 no_buildings
+      - 409 base_locked
+  /api/v1/facade-elements/{element_id}:
+    patch:
+      operationId: updateFacadeElement
+      tags:
+      - facades
+      summary: Update params (clamped)
+      parameters:
+      - name: element_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacadeElementPatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacadeElementWithAdjustments'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 element_not_found
+      - 409 base_locked
+    delete:
+      operationId: deleteFacadeElement
+      tags:
+      - facades
+      summary: Delete element
+      parameters:
+      - name: element_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/alternatives/{alternative_id}/scene:
+    get:
+      operationId: getScene
+      tags:
+      - scene
+      summary: Compiled canonical scene (scene.schema.json)
+      parameters:
+      - name: alternative_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scene'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/simulations/estimate:
+    post:
+      operationId: estimateSimulation
+      tags:
+      - simulations
+      summary: Memory/ETA estimate and coarsening proposal (ADR-10)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstimateRequest'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Estimate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 location_missing
+      - 422 geometry_invalid
+  /api/v1/simulations:
+    post:
+      operationId: createSimulation
+      tags:
+      - simulations
+      summary: Create a study with one job per direction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationCreate'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Study'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 403 forbidden (reviewer)
+      - 409 location_missing
+      - 422 geometry_invalid
+      - 422 mesh_too_large (proposed_dx_m in details)
+  /api/v1/projects/{project_id}/simulations:
+    get:
+      operationId: listSimulations
+      tags:
+      - simulations
+      summary: Studies newest first
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudySummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/simulations/{study_id}:
+    get:
+      operationId: getSimulation
+      tags:
+      - simulations
+      summary: Study with per-job progress (poll every 1 s)
+      parameters:
+      - name: study_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Study'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 study_not_found
+  /api/v1/simulations/{study_id}/cancel:
+    post:
+      operationId: cancelSimulation
+      tags:
+      - simulations
+      summary: Cancel queued and running jobs
+      parameters:
+      - name: study_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Study'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/jobs/{job_id}:
+    get:
+      operationId: getJob
+      tags:
+      - jobs
+      summary: One job (any lane)
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 job_not_found
+  /api/v1/jobs/{job_id}/cancel:
+    post:
+      operationId: cancelJob
+      tags:
+      - jobs
+      summary: Cancel one job
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 job_not_cancellable
+  /api/v1/jobs/{job_id}/retry:
+    post:
+      operationId: retryJob
+      tags:
+      - jobs
+      summary: Re-queue a failed resumable job
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 job_not_retryable
+  /api/v1/results/{result_id}:
+    get:
+      operationId: getResult
+      tags:
+      - results
+      summary: Result metadata
+      parameters:
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 result_not_found
+  /api/v1/results/{result_id}/fields/{field_name}:
+    get:
+      operationId: getResultField
+      tags:
+      - results
+      summary: Raw little-endian float32 (or uint8 mask) field, row-major (ny,nx) plan / (nz,ns) section
+      parameters:
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: field_name
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - K
+          - ux
+          - uy
+          - uz
+          - us
+          - speed
+          - mask
+          - ti
+          - slice_xz
+          - slice_yz
+          - lawson_class
+          - exceedance
+      responses:
+        '200':
+          description: Success
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            X-Field-Shape:
+              schema:
+                type: string
+              description: e.g. '300,400' — (ny,nx) plan or (nz,ns) section
+            X-Field-Dtype:
+              schema:
+                type: string
+                enum:
+                - float32
+                - uint8
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 field_not_found
+  /api/v1/results/{result_id}/images/{image_name}:
+    get:
+      operationId: getResultImage
+      tags:
+      - results
+      summary: Preview PNG produced by the solver
+      parameters:
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: image_name
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^(k|zones|speed|lawson|delta|slice_[a-z0-9_]+)\.png$
+      responses:
+        '200':
+          description: Success
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 image_not_found
+  /api/v1/results/{result_id}/zones:
+    get:
+      operationId: getResultZones
+      tags:
+      - results
+      summary: Zone areas with given thresholds (numpy, ≤2 s)
+      parameters:
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: k_accel
+        in: query
+        required: false
+        schema:
+          type: number
+          exclusiveMinimum: 0
+      - name: k_stagnation
+        in: query
+        required: false
+        schema:
+          type: number
+          exclusiveMinimum: 0
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneAreas'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/results/{result_id}/viewer3d:
+    get:
+      operationId: getResultViewer3d
+      tags:
+      - results
+      summary: 3D viewer manifest (volume3d only)
+      parameters:
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Viewer3D'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 viewer_not_available
+  /api/v1/results/{result_id}/download:
+    get:
+      operationId: downloadResult
+      tags:
+      - results
+      summary: Download fields as npz or csv
+      parameters:
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - npz
+          - csv
+      responses:
+        '200':
+          description: Success
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/simulations/{study_id}/comfort:
+    get:
+      operationId: getComfort
+      tags:
+      - comfort
+      summary: Lawson comfort for the caller's current table
+      parameters:
+      - name: study_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comfort'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 rose_missing
+  /api/v1/simulations/{study_id}/comfort/recompute:
+    post:
+      operationId: recomputeComfort
+      tags:
+      - comfort
+      summary: Enqueue aggregate job (202) or return existing result with same lawson_hash (200)
+      description: Returns 200 with the existing Comfort when lawson_hash matches.
+      parameters:
+      - name: study_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comfort'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '200':
+          description: Already computed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comfort'
+      x-error-codes:
+      - 409 rose_missing
+  /api/v1/comparisons/check:
+    get:
+      operationId: checkComparison
+      tags:
+      - comparisons
+      summary: BR-11 compatibility check
+      parameters:
+      - name: a
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Result id (base)
+      - name: b
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Result id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonCheck'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 results_incomparable (differences[] in details)
+  /api/v1/comparisons/areas:
+    get:
+      operationId: compareAreas
+      tags:
+      - comparisons
+      summary: Zone areas for a and b plus reduction area
+      parameters:
+      - name: a
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Result id (base)
+      - name: b
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Result id
+      - name: k_accel
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: k_stagnation
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: dk_reduction
+        in: query
+        required: false
+        schema:
+          type: number
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonAreas'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 results_incomparable
+  /api/v1/comparisons/comfort:
+    get:
+      operationId: compareComfort
+      tags:
+      - comparisons
+      summary: Lawson class areas of two studies
+      parameters:
+      - name: study_a
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: study_b
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonComfort'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 rose_missing
+      - 422 results_incomparable
+  /api/v1/exports:
+    post:
+      operationId: createExport
+      tags:
+      - exports
+      summary: Render PNG ≥300 dpi on the light lane
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCreate'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 results_missing
+      - 422 results_incomparable
+  /api/v1/exports/{export_id}:
+    get:
+      operationId: getExport
+      tags:
+      - exports
+      summary: Export status
+      parameters:
+      - name: export_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Export'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 export_not_found
+  /api/v1/exports/{export_id}/file:
+    get:
+      operationId: downloadExport
+      tags:
+      - exports
+      summary: Download PNG
+      parameters:
+      - name: export_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 export_not_ready
+  /api/v1/projects/{project_id}/reports:
+    post:
+      operationId: createReport
+      tags:
+      - reports
+      summary: Generate the PDF report (light lane)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportCreate'
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 results_missing
+    get:
+      operationId: listReports
+      tags:
+      - reports
+      summary: Report versions
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Report'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/reports/{report_id}:
+    get:
+      operationId: getReport
+      tags:
+      - reports
+      summary: Report status
+      parameters:
+      - name: report_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 report_not_found
+  /api/v1/reports/{report_id}/file:
+    get:
+      operationId: downloadReport
+      tags:
+      - reports
+      summary: Download PDF (rafaga-<slug>-v<version>.pdf)
+      parameters:
+      - name: report_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 409 report_not_ready
+  /api/v1/settings:
+    get:
+      operationId: getSettings
+      tags:
+      - settings
+      summary: Caller's settings (lazily created with defaults)
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    patch:
+      operationId: updateSettings
+      tags:
+      - settings
+      summary: Update thresholds, Lawson table, limits
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsPatch'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 validation_error
+  /api/v1/templates:
+    get:
+      operationId: listTemplates
+      tags:
+      - templates
+      summary: Caller's templates
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+    post:
+      operationId: createTemplate
+      tags:
+      - templates
+      summary: Save a parameter template (never location)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Validation'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 422 template_contains_location
+  /api/v1/templates/{template_id}:
+    delete:
+      operationId: deleteTemplate
+      tags:
+      - templates
+      summary: Delete own template
+      parameters:
+      - name: template_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Success
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 template_not_found
+  /api/v1/projects/{project_id}/apply-template:
+    post:
+      operationId: applyTemplate
+      tags:
+      - templates
+      summary: Apply template to roughness and caller's thresholds (location untouched)
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyTemplate'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WindClimate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-error-codes:
+      - 404 template_not_found
+  /internal/solver/health:
+    get:
+      operationId: getSolverHealth
+      tags:
+      - solver (internal, not published)
+      summary: Solver health — real path is GET /health on http://solver:8000 (compose network only)
+      servers:
+      - url: http://solver:8000
+        description: Internal; never published to the host
+      x-real-path: /health
+      security: []
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolverHealth'
+        '503':
+          description: DB unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolverHealth'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorBody:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable code the SPA maps to es-CO copy
+        message:
+          type: string
+          description: Lowercase English description of the condition
+        details:
+          type: object
+          additionalProperties: true
+        hint:
+          type: string
+          description: Suggested fix (code-mapped in the SPA)
+      required:
+      - code
+      - message
+      example:
+        code: project_not_found
+        message: project not found
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+        db:
+          type: string
+          enum:
+          - ok
+          - down
+        version:
+          type: string
+      required:
+      - status
+      - db
+      example:
+        status: ok
+        db: ok
+        version: 1.0.0
+    SolverHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - degraded
+        device:
+          type: string
+          enum:
+          - cpu
+          - gpu
+        gpu_name:
+          oneOf:
+          - type: string
+          - type: 'null'
+        db:
+          type: string
+          enum:
+          - ok
+          - down
+        lanes:
+          type: object
+          properties:
+            heavy:
+              type: object
+              properties:
+                busy:
+                  type: boolean
+                job_id:
+                  oneOf:
+                  - type: string
+                    format: uuid
+                  - type: 'null'
+            light:
+              type: object
+              properties:
+                busy:
+                  type: integer
+                  minimum: 0
+      required:
+      - status
+      - device
+      - db
+      - lanes
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum:
+          - architect
+          - reviewer
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - email
+      - role
+      example:
+        id: 00000000-0000-0000-0000-000000000001
+        email: arq@example.test
+        role: architect
+    Credentials:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 10
+          maxLength: 256
+      required:
+      - email
+      - password
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+          maxLength: 256
+      required:
+      - email
+      - password
+    UserCreate:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 10
+          maxLength: 256
+        role:
+          type: string
+          enum:
+          - architect
+          - reviewer
+      required:
+      - email
+      - password
+      - role
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum:
+          - bearer
+        expires_in:
+          type: integer
+          description: Seconds (JWT_TTL_MINUTES*60)
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - user
+    SetupStatus:
+      type: object
+      properties:
+        needs_setup:
+          type: boolean
+      required:
+      - needs_setup
+    SystemStatus:
+      type: object
+      properties:
+        api:
+          type: string
+          enum:
+          - ok
+        db:
+          type: string
+          enum:
+          - ok
+          - down
+        solver:
+          type: object
+          properties:
+            online:
+              type: boolean
+              description: false when heartbeat_at older than 30 s
+            device:
+              oneOf:
+              - type: string
+                enum:
+                - cpu
+                - gpu
+              - type: 'null'
+            gpu_name:
+              oneOf:
+              - type: string
+              - type: 'null'
+            vram_total_bytes:
+              oneOf:
+              - type: integer
+              - type: 'null'
+            ram_budget_bytes:
+              oneOf:
+              - type: integer
+              - type: 'null'
+            cpu_cores:
+              oneOf:
+              - type: integer
+              - type: 'null'
+            mlups_2d:
+              oneOf:
+              - type: number
+              - type: 'null'
+            mlups_3d:
+              oneOf:
+              - type: number
+              - type: 'null'
+            heartbeat_at:
+              oneOf:
+              - type: string
+                format: date-time
+              - type: 'null'
+          required:
+          - online
+      required:
+      - api
+      - db
+      - solver
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        lat:
+          oneOf:
+          - type: number
+            minimum: -90
+            maximum: 90
+          - type: 'null'
+        lon:
+          oneOf:
+          - type: number
+            minimum: -180
+            maximum: 180
+          - type: 'null'
+        elevation_m:
+          oneOf:
+          - type: number
+          - type: 'null'
+        elevation_source:
+          oneOf:
+          - type: string
+            enum:
+            - open_meteo
+            - manual
+          - type: 'null'
+        air_density_kg_m3:
+          oneOf:
+          - type: number
+            description: 'ISA: 1.225(1-2.25577e-5 h)^4.25588 (BR-06)'
+          - type: 'null'
+        analysis_height_m:
+          type: number
+          minimum: 0.5
+          maximum: 3.0
+          default: 1.5
+        role_on_project:
+          type: string
+          enum:
+          - owner
+          - reviewer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - lat
+      - lon
+      - analysis_height_m
+      - role_on_project
+      description: 'A new project has no location: lat/lon/elevation/density are null until the user places it (BR-18).'
+      example:
+        id: 00000000-0000-0000-0000-00000000000a
+        name: Proyecto de prueba
+        lat: null
+        lon: null
+        elevation_m: null
+        elevation_source: null
+        air_density_kg_m3: null
+        analysis_height_m: 1.5
+        role_on_project: owner
+    ProjectSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        has_location:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+        role_on_project:
+          type: string
+          enum:
+          - owner
+          - reviewer
+      required:
+      - id
+      - name
+      - has_location
+      - updated_at
+      - role_on_project
+    ProjectCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+      required:
+      - name
+    ProjectPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        analysis_height_m:
+          type: number
+          minimum: 0.5
+          maximum: 3.0
+    LocationRequest:
+      type: object
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          minimum: -180
+          maximum: 180
+        elevation_m:
+          oneOf:
+          - type: number
+            minimum: -500
+            maximum: 9000
+            description: Manual override; omitted → Open-Meteo
+          - type: 'null'
+      required:
+      - lat
+      - lon
+      example:
+        lat: 0.0
+        lon: 0.0
+    Share:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - user_id
+      - email
+    GeoResult:
+      type: object
+      properties:
+        name:
+          type: string
+        admin1:
+          oneOf:
+          - type: string
+          - type: 'null'
+        country:
+          oneOf:
+          - type: string
+          - type: 'null'
+        lat:
+          type: number
+        lon:
+          type: number
+        elevation_m:
+          oneOf:
+          - type: number
+          - type: 'null'
+      required:
+      - name
+      - lat
+      - lon
+    Elevation:
+      type: object
+      properties:
+        elevation_m:
+          type: number
+        air_density_kg_m3:
+          type: number
+        source:
+          type: string
+          enum:
+          - open_meteo
+      required:
+      - elevation_m
+      - air_density_kg_m3
+      - source
+    TerrainCategory:
+      type: object
+      properties:
+        key:
+          type: string
+          enum:
+          - open_sea
+          - open
+          - suburban
+          - urban
+          - dense_urban
+        label_key:
+          type: string
+        z0_m:
+          type: number
+        default:
+          type: boolean
+      required:
+      - key
+      - label_key
+      - z0_m
+      - default
+      example:
+        key: urban
+        label_key: terrain.urban
+        z0_m: 1.0
+        default: true
+    WindSector:
+      type: object
+      properties:
+        center_deg:
+          type: number
+          minimum: 0
+          maximum: 337.5
+        frequency:
+          type: number
+          minimum: 0
+          maximum: 1
+        mean_ms:
+          type: number
+        p50_ms:
+          type: number
+        p90_ms:
+          type: number
+        max_ms:
+          type: number
+        weibull_k:
+          type: number
+        weibull_c_ms:
+          type: number
+      required:
+      - center_deg
+      - frequency
+      - mean_ms
+      - p50_ms
+      - p90_ms
+      - max_ms
+      - weibull_k
+      - weibull_c_ms
+    WindRose:
+      type: object
+      properties:
+        sectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/WindSector'
+          minItems: 16
+          maxItems: 16
+          description: Centred on 0, 22.5 … 337.5 deg, meteorological 'from' convention
+        calm_fraction:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Hours with U10 < 0.5 m/s
+        period_years:
+          type: integer
+          minimum: 1
+          maximum: 40
+        hours:
+          type: integer
+          description: Number of hourly samples used
+      required:
+      - sectors
+      - calm_fraction
+      - period_years
+      - hours
+      description: Sum of sector frequencies + calm_fraction = 1 ± 0.001.
+    WindClimate:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - era5
+          - manual
+        rose:
+          oneOf:
+          - $ref: '#/components/schemas/WindRose'
+          - type: 'null'
+        period_years:
+          type: integer
+          default: 10
+        manual_direction_deg:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 360
+          - type: 'null'
+        manual_u10_ms:
+          oneOf:
+          - type: number
+            minimum: 0.5
+            maximum: 60
+          - type: 'null'
+        terrain_category:
+          type: string
+          enum:
+          - open_sea
+          - open
+          - suburban
+          - urban
+          - dense_urban
+        z0_m:
+          type: number
+          minimum: 0.0001
+          maximum: 3.0
+        ustar_ms:
+          oneOf:
+          - type: number
+          - type: 'null'
+        air_density_kg_m3:
+          oneOf:
+          - type: number
+          - type: 'null'
+        fetched_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        from_cache:
+          type: boolean
+      required:
+      - source
+      - rose
+      - terrain_category
+      - z0_m
+    WindPatch:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - era5
+          - manual
+        manual_direction_deg:
+          type: number
+          minimum: 0
+          maximum: 360
+        manual_u10_ms:
+          type: number
+          minimum: 0.5
+          maximum: 60
+        terrain_category:
+          type: string
+          enum:
+          - open_sea
+          - open
+          - suburban
+          - urban
+          - dense_urban
+        z0_m:
+          type: number
+          minimum: 0.0001
+          maximum: 3.0
+    Era5Request:
+      type: object
+      properties:
+        years:
+          type: integer
+          minimum: 1
+          maximum: 40
+          default: 10
+    Tier:
+      type: object
+      properties:
+        z_from:
+          type: number
+          minimum: 0
+        z_to:
+          type: number
+        footprint:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+            description: '[x, y] local ENU metres'
+          minItems: 3
+          description: Closed ring without repeated closing vertex
+      required:
+      - z_from
+      - z_to
+      - footprint
+    Building:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 80
+        footprint:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+            description: '[x, y] local ENU metres'
+          minItems: 3
+          description: Closed ring without repeated closing vertex
+        holes:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+              description: '[x, y] local ENU metres'
+            minItems: 3
+            description: Closed ring without repeated closing vertex
+          default: []
+        height_m:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 500
+          - type: 'null'
+        tiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tier'
+          description: Optional stacked massing (imports); absent → single prism
+        source:
+          type: string
+          enum:
+          - draw
+          - dxf
+          - stl
+          - obj
+          - ifc
+          - trace
+        missing_height:
+          type: boolean
+          default: false
+      required:
+      - id
+      - footprint
+      - height_m
+      - source
+      description: Footprint in local ENU metres (x east, y north), counter-clockwise, origin = project anchor. Edge i joins
+        vertex i and i+1 (mod n).
+      example:
+        id: 00000000-0000-0000-0000-0000000000b1
+        name: Bloque 1
+        footprint:
+        - - 0
+          - 0
+        - - 20
+          - 0
+        - - 20
+          - 12
+        - - 0
+          - 12
+        holes: []
+        height_m: 12
+        source: draw
+        missing_height: false
+    GeometryIssue:
+      type: object
+      properties:
+        building_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        code:
+          type: string
+          enum:
+          - not_closed
+          - self_intersection
+          - height_out_of_range
+          - footprint_too_small
+          - missing_height
+          - overlap
+        message_key:
+          type: string
+        location:
+          oneOf:
+          - type: array
+            items:
+              type: number
+            minItems: 2
+            maxItems: 2
+            description: '[x, y] local ENU metres'
+          - type: 'null'
+      required:
+      - code
+      - message_key
+    Geometry:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        buildings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Building'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeometryIssue'
+        orphaned_elements:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Facade elements whose edge vanished (PUT only)
+      required:
+      - version
+      - buildings
+      - issues
+    GeometryPut:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        confirm_base_change:
+          type: boolean
+          default: false
+        buildings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Building'
+          maxItems: 2000
+      required:
+      - expected_version
+      - buildings
+    GeometryValidateRequest:
+      type: object
+      properties:
+        buildings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Building'
+      description: Omit buildings to validate the stored set.
+    GeometryValidation:
+      type: object
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeometryIssue'
+      required:
+      - issues
+    ImportReport:
+      type: object
+      properties:
+        buildings_added:
+          type: integer
+        missing_height:
+          type: array
+          items:
+            type: string
+            format: uuid
+        ignored:
+          type: array
+          items:
+            type: object
+            properties:
+              entity:
+                type: string
+              reason:
+                type: string
+            required:
+            - entity
+            - reason
+        detected_unit:
+          type: string
+          enum:
+          - m
+          - cm
+          - mm
+          - ft
+          - unknown
+        warnings:
+          type: array
+          items:
+            type: string
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+      required:
+      - buildings_added
+      - missing_height
+      - ignored
+      - detected_unit
+      - warnings
+    BackgroundPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        page_count:
+          type: integer
+          minimum: 1
+        page:
+          type: integer
+          minimum: 1
+        calibration:
+          oneOf:
+          - type: object
+            properties:
+              p1:
+                type: array
+                items:
+                  type: number
+                minItems: 2
+                maxItems: 2
+                description: '[x, y] local ENU metres'
+              p2:
+                type: array
+                items:
+                  type: number
+                minItems: 2
+                maxItems: 2
+                description: '[x, y] local ENU metres'
+              distance_m:
+                type: number
+                exclusiveMinimum: 0
+            required:
+            - p1
+            - p2
+            - distance_m
+          - type: 'null'
+        metres_per_pixel:
+          oneOf:
+          - type: number
+          - type: 'null'
+        transform:
+          type: object
+          properties:
+            offset:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+              description: '[x, y] local ENU metres'
+            rotation_deg:
+              type: number
+            scale:
+              type: number
+        opacity:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.5
+      required:
+      - id
+      - page_count
+      - page
+    BackgroundPatch:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        calibration:
+          type: object
+          properties:
+            p1:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+              description: '[x, y] local ENU metres'
+            p2:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+              description: '[x, y] local ENU metres'
+            distance_m:
+              type: number
+              exclusiveMinimum: 0
+          required:
+          - p1
+          - p2
+          - distance_m
+        transform:
+          type: object
+          properties:
+            offset:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+              description: '[x, y] local ENU metres'
+            rotation_deg:
+              type: number
+            scale:
+              type: number
+        opacity:
+          type: number
+          minimum: 0
+          maximum: 1
+    Alternative:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        is_base:
+          type: boolean
+        position:
+          type: integer
+        element_count:
+          type: integer
+        latest_results_summary:
+          oneOf:
+          - type: object
+            properties:
+              study_id:
+                type: string
+                format: uuid
+              kind:
+                type: string
+              status:
+                type: string
+              k_mean:
+                oneOf:
+                - type: number
+                - type: 'null'
+          - type: 'null'
+      required:
+      - id
+      - name
+      - is_base
+      - position
+    AlternativeCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        from_alternative_id:
+          type: string
+          format: uuid
+      required:
+      - name
+    AlternativePatch:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        position:
+          type: integer
+          minimum: 0
+    ScreenParams:
+      type: object
+      properties:
+        porosity:
+          type: number
+          minimum: 0.05
+          maximum: 0.95
+          default: 0.4
+          description: Open-area ratio β (BR-10)
+        height_m:
+          type: number
+          minimum: 0.5
+          maximum: 50
+          default: 3.0
+          description: Clamped to building height
+        offset_m:
+          type: number
+          minimum: 0
+          maximum: 5
+          default: 0.5
+      additionalProperties: false
+      description: Screen thickness fixed at 0.1 m (not a parameter).
+    FinsParams:
+      type: object
+      properties:
+        depth_m:
+          type: number
+          minimum: 0.1
+          maximum: 3.0
+          default: 0.5
+        pitch_m:
+          type: number
+          minimum: 0.3
+          maximum: 10
+          default: 1.0
+        thickness_m:
+          type: number
+          minimum: 0.05
+          maximum: 0.5
+          default: 0.15
+        height_m:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 500
+            description: null = building height; clamped to building height
+          - type: 'null'
+      additionalProperties: false
+    CanopyParams:
+      type: object
+      properties:
+        overhang_m:
+          type: number
+          minimum: 0.5
+          maximum: 6.0
+          default: 2.0
+        height_m:
+          type: number
+          minimum: 2.5
+          maximum: 10.0
+          default: 3.5
+          description: Underside elevation; clamped to building height
+        thickness_m:
+          type: number
+          const: 0.3
+          default: 0.3
+      additionalProperties: false
+    SetbackParams:
+      type: object
+      properties:
+        setback_m:
+          type: number
+          minimum: 0.1
+          maximum: 5.0
+          default: 1.0
+          description: Per floor
+        floor_height_m:
+          type: number
+          minimum: 2.5
+          maximum: 6.0
+          default: 3.0
+        start_floor:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+      additionalProperties: false
+    VegetationParams:
+      type: object
+      properties:
+        lad_m2_m3:
+          type: number
+          minimum: 0.1
+          maximum: 5.0
+          default: 1.0
+          description: Leaf area density
+        height_m:
+          type: number
+          minimum: 1
+          maximum: 30
+          default: 8.0
+        width_m:
+          type: number
+          minimum: 0.5
+          maximum: 5.0
+          default: 3.0
+        offset_m:
+          type: number
+          minimum: 0
+          maximum: 5.0
+          default: 1.0
+      additionalProperties: false
+    FacadeElementScreen:
+      type: object
+      properties:
+        type:
+          type: string
+          const: screen
+        params:
+          $ref: '#/components/schemas/ScreenParams'
+      required:
+      - type
+      - params
+    FacadeElementFins:
+      type: object
+      properties:
+        type:
+          type: string
+          const: fins
+        params:
+          $ref: '#/components/schemas/FinsParams'
+      required:
+      - type
+      - params
+    FacadeElementCanopy:
+      type: object
+      properties:
+        type:
+          type: string
+          const: canopy
+        params:
+          $ref: '#/components/schemas/CanopyParams'
+      required:
+      - type
+      - params
+    FacadeElementSetback:
+      type: object
+      properties:
+        type:
+          type: string
+          const: setback
+        params:
+          $ref: '#/components/schemas/SetbackParams'
+      required:
+      - type
+      - params
+    FacadeElementVegetation:
+      type: object
+      properties:
+        type:
+          type: string
+          const: vegetation
+        params:
+          $ref: '#/components/schemas/VegetationParams'
+      required:
+      - type
+      - params
+    FacadeElementTyped:
+      oneOf:
+      - $ref: '#/components/schemas/FacadeElementScreen'
+      - $ref: '#/components/schemas/FacadeElementFins'
+      - $ref: '#/components/schemas/FacadeElementCanopy'
+      - $ref: '#/components/schemas/FacadeElementSetback'
+      - $ref: '#/components/schemas/FacadeElementVegetation'
+      discriminator:
+        propertyName: type
+        mapping:
+          screen: '#/components/schemas/FacadeElementScreen'
+          fins: '#/components/schemas/FacadeElementFins'
+          canopy: '#/components/schemas/FacadeElementCanopy'
+          setback: '#/components/schemas/FacadeElementSetback'
+          vegetation: '#/components/schemas/FacadeElementVegetation'
+    FacadeElement:
+      allOf:
+      - type: object
+        properties:
+          id:
+            type: string
+            format: uuid
+          building_id:
+            type: string
+            format: uuid
+          edge_index:
+            type: integer
+            minimum: 0
+          orphaned:
+            type: boolean
+            default: false
+        required:
+        - id
+        - building_id
+        - edge_index
+      - $ref: '#/components/schemas/FacadeElementTyped'
+      example:
+        id: 00000000-0000-0000-0000-0000000000e1
+        building_id: 00000000-0000-0000-0000-0000000000b1
+        edge_index: 0
+        type: screen
+        params:
+          porosity: 0.4
+          height_m: 3.0
+          offset_m: 0.5
+        orphaned: false
+    FacadeElementCreate:
+      allOf:
+      - type: object
+        properties:
+          building_id:
+            type: string
+            format: uuid
+          edge_index:
+            type: integer
+            minimum: 0
+        required:
+        - building_id
+        - edge_index
+      - type: object
+        properties:
+          type:
+            type: string
+            enum:
+            - screen
+            - fins
+            - canopy
+            - setback
+            - vegetation
+          params:
+            type: object
+            description: Partial; missing keys take defaults
+        required:
+        - type
+    FacadeElementPatch:
+      type: object
+      properties:
+        params:
+          type: object
+        confirm_base_change:
+          type: boolean
+          default: false
+      required:
+      - params
+    Adjustment:
+      type: object
+      properties:
+        field:
+          type: string
+        requested:
+          type: number
+        applied:
+          type: number
+        reason:
+          type: string
+      required:
+      - field
+      - requested
+      - applied
+    FacadeElementWithAdjustments:
+      allOf:
+      - $ref: '#/components/schemas/FacadeElement'
+      - type: object
+        properties:
+          adjustments:
+            type: array
+            items:
+              $ref: '#/components/schemas/Adjustment'
+        required:
+        - adjustments
+    FacadeStrategy:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - screen
+          - fins
+          - canopy
+          - setback
+          - vegetation
+        label_key:
+          type: string
+        help_key:
+          type: string
+        parameters:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              unit:
+                type: string
+              min:
+                type: number
+              max:
+                type: number
+              default:
+                oneOf:
+                - type: number
+                - type: 'null'
+              help_key:
+                type: string
+            required:
+            - key
+            - unit
+            - min
+            - max
+            - default
+            - help_key
+      required:
+      - type
+      - label_key
+      - parameters
+    Scene:
+      $ref: ./scene.schema.json
+    Point2:
+      type: array
+      items:
+        type: number
+      minItems: 2
+      maxItems: 2
+      description: '[x, y] local ENU metres'
+    SectionLine:
+      type: object
+      properties:
+        p0:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+          description: '[x, y] local ENU metres'
+        p1:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+          description: '[x, y] local ENU metres'
+      required:
+      - p0
+      - p1
+      description: Drawn upwind → downwind; the section's wind direction is the bearing p0→p1.
+    OutputGridPlan:
+      type: object
+      properties:
+        frame:
+          type: string
+          const: plan
+        origin_x:
+          type: number
+          description: Lower-left corner, local ENU m
+        origin_y:
+          type: number
+          description: Lower-left corner, local ENU m
+        dx_m:
+          type: number
+          exclusiveMinimum: 0
+        nx:
+          type: integer
+          minimum: 1
+        ny:
+          type: integer
+          minimum: 1
+      required:
+      - frame
+      - origin_x
+      - origin_y
+      - dx_m
+      - nx
+      - ny
+      description: Arrays row-major shape (ny, nx); row 0 = south.
+    OutputGridSection:
+      type: object
+      properties:
+        frame:
+          type: string
+          const: section
+        s0:
+          type: number
+          description: Distance along the section line of column 0 (m)
+        dx_m:
+          type: number
+          exclusiveMinimum: 0
+        ns:
+          type: integer
+          minimum: 1
+        nz:
+          type: integer
+          minimum: 1
+      required:
+      - frame
+      - s0
+      - dx_m
+      - ns
+      - nz
+      description: Arrays row-major shape (nz, ns); row 0 = ground.
+    OutputGrid:
+      oneOf:
+      - $ref: '#/components/schemas/OutputGridPlan'
+      - $ref: '#/components/schemas/OutputGridSection'
+      discriminator:
+        propertyName: frame
+        mapping:
+          plan: '#/components/schemas/OutputGridPlan'
+          section: '#/components/schemas/OutputGridSection'
+    EstimateRequest:
+      type: object
+      properties:
+        alternative_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - plan2d
+          - section2d
+          - volume3d
+        directions_deg:
+          type: array
+          items:
+            type: number
+            minimum: 0
+            maximum: 360
+          minItems: 1
+          maxItems: 16
+        section:
+          $ref: '#/components/schemas/SectionLine'
+        dx_m:
+          type: number
+          minimum: 0.25
+          maximum: 20
+        device:
+          type: string
+          enum:
+          - auto
+          - cpu
+          - gpu
+          default: auto
+      required:
+      - alternative_id
+      - kind
+      - dx_m
+    Estimate:
+      type: object
+      properties:
+        device:
+          type: string
+          enum:
+          - cpu
+          - gpu
+        nodes:
+          type: integer
+        memory_bytes:
+          type: integer
+        budget_bytes:
+          type: integer
+        fits:
+          type: boolean
+        proposed_dx_m:
+          oneOf:
+          - type: number
+          - type: 'null'
+        rejected_reason:
+          oneOf:
+          - type: string
+          - type: 'null'
+        eta_seconds:
+          type: integer
+        grid:
+          type: object
+          properties:
+            sim:
+              type: object
+              description: Resolved sim grid (job-contract.md §3)
+            output:
+              $ref: '#/components/schemas/OutputGrid'
+      required:
+      - device
+      - nodes
+      - memory_bytes
+      - budget_bytes
+      - fits
+      - proposed_dx_m
+      - eta_seconds
+      example:
+        device: gpu
+        nodes: 120000
+        memory_bytes: 549000000
+        budget_bytes: 6460000000
+        fits: true
+        proposed_dx_m: null
+        rejected_reason: null
+        eta_seconds: 45
+    SimulationCreate:
+      allOf:
+      - $ref: '#/components/schemas/EstimateRequest'
+      - type: object
+        properties:
+          auto_coarsen:
+            type: boolean
+            default: false
+      description: plan2d/volume3d require directions_deg (1-16); section2d requires section.
+    JobError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        hint:
+          oneOf:
+          - type: string
+          - type: 'null'
+      required:
+      - code
+      - message
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        study_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        kind:
+          type: string
+          enum:
+          - plan2d
+          - section2d
+          - volume3d
+          - aggregate
+          - render
+          - report
+        lane:
+          type: string
+          enum:
+          - heavy
+          - light
+        direction_deg:
+          oneOf:
+          - type: number
+          - type: 'null'
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - failed
+          - cancelled
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
+        phase:
+          oneOf:
+          - type: string
+            description: e.g. voxelize, spinup, averaging, postprocess
+          - type: 'null'
+        eta_seconds:
+          oneOf:
+          - type: integer
+          - type: 'null'
+        device_used:
+          oneOf:
+          - type: string
+            enum:
+            - cpu
+            - gpu
+          - type: 'null'
+        resumable:
+          type: boolean
+        cancel_requested:
+          type: boolean
+        error:
+          oneOf:
+          - $ref: '#/components/schemas/JobError'
+          - type: 'null'
+        result_id:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        finished_at:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      required:
+      - id
+      - kind
+      - lane
+      - status
+      - progress
+      - resumable
+    Study:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        alternative_id:
+          type: string
+          format: uuid
+        alternative_name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - plan2d
+          - section2d
+          - volume3d
+        directions_deg:
+          type: array
+          items:
+            type: number
+        section:
+          oneOf:
+          - $ref: '#/components/schemas/SectionLine'
+          - type: 'null'
+        dx_m:
+          type: number
+        device:
+          type: string
+          enum:
+          - auto
+          - cpu
+          - gpu
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - partial
+          - failed
+          - cancelled
+        progress:
+          type: number
+          minimum: 0
+          maximum: 1
+        coverage:
+          oneOf:
+          - type: number
+            minimum: 0
+            maximum: 1
+            description: Rose frequency covered by completed directions
+          - type: 'null'
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Job'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - alternative_id
+      - kind
+      - status
+      - progress
+      - jobs
+      description: 'Polling contract (ADR-07): while any job is queued or running the SPA re-fetches GET /api/v1/simulations/{study_id}
+        every 1 s; progress/phase/eta change at least every 2 s (NFR-06). No SSE/WebSocket.'
+    StudySummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alternative_name:
+          type: string
+        kind:
+          type: string
+        directions_deg:
+          type: array
+          items:
+            type: number
+        status:
+          type: string
+        progress:
+          type: number
+        device:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - kind
+      - status
+      - progress
+    Result:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+          format: uuid
+        study_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - plan2d
+          - section2d
+          - volume3d
+        direction_deg:
+          type: number
+        device:
+          type: string
+          enum:
+          - cpu
+          - gpu
+        dx_m:
+          type: number
+        output_grid:
+          $ref: '#/components/schemas/OutputGrid'
+        stats:
+          type: object
+          properties:
+            k_mean:
+              type: number
+            k_max:
+              type: number
+            k_p95:
+              type: number
+          required:
+          - k_mean
+          - k_max
+          - k_p95
+        convergence:
+          type: object
+          properties:
+            converged:
+              type: boolean
+            flow_throughs:
+              type: number
+            rel_change:
+              type: number
+        fields:
+          type: array
+          items:
+            type: string
+            enum:
+            - K
+            - ux
+            - uy
+            - uz
+            - us
+            - speed
+            - mask
+            - ti
+        images:
+          type: array
+          items:
+            type: string
+        comparability_key:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - kind
+      - direction_deg
+      - device
+      - dx_m
+      - output_grid
+      - stats
+      - fields
+      - images
+      - comparability_key
+    ZoneArea:
+      type: object
+      properties:
+        zone:
+          type: string
+          enum:
+          - acceleration
+          - stagnation
+          - reduction
+        area_m2:
+          type: number
+        percent:
+          type: number
+      required:
+      - zone
+      - area_m2
+      - percent
+    ZoneAreas:
+      type: object
+      properties:
+        result_id:
+          type: string
+          format: uuid
+        thresholds:
+          type: object
+          properties:
+            k_accel:
+              type: number
+            k_stagnation:
+              type: number
+        fluid_area_m2:
+          type: number
+        zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoneArea'
+      required:
+      - result_id
+      - thresholds
+      - fluid_area_m2
+      - zones
+    Viewer3D:
+      type: object
+      properties:
+        scene:
+          $ref: '#/components/schemas/Scene'
+        slices:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              plane:
+                type: string
+                enum:
+                - xy
+                - xz
+                - yz
+              extents:
+                type: array
+                items:
+                  type: number
+                minItems: 4
+                maxItems: 6
+              field:
+                type: string
+                description: Field name fetchable via /fields/{field_name}
+              shape:
+                type: array
+                items:
+                  type: integer
+            required:
+            - name
+            - plane
+            - extents
+            - field
+            - shape
+        streamlines:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: number
+              minItems: 3
+              maxItems: 3
+      required:
+      - slices
+      - streamlines
+    LawsonClass:
+      type: object
+      properties:
+        key:
+          type: string
+        label_key:
+          type: string
+        threshold_ms:
+          oneOf:
+          - type: number
+          - type: 'null'
+      required:
+      - key
+      - label_key
+      - threshold_ms
+    LawsonTable:
+      type: object
+      properties:
+        exceedance_probability:
+          type: number
+          default: 0.05
+        comfort:
+          type: array
+          items:
+            $ref: '#/components/schemas/LawsonClass'
+          default:
+          - key: sitting
+            label_key: lawson.sitting
+            threshold_ms: 4
+          - key: standing
+            label_key: lawson.standing
+            threshold_ms: 6
+          - key: strolling
+            label_key: lawson.strolling
+            threshold_ms: 8
+          - key: business_walking
+            label_key: lawson.business_walking
+            threshold_ms: 10
+          - key: uncomfortable
+            label_key: lawson.uncomfortable
+            threshold_ms: null
+        safety_probability:
+          type: number
+          default: 0.00025
+        safety:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label_key:
+                type: string
+              threshold_ms:
+                type: number
+            required:
+            - key
+            - threshold_ms
+          default:
+          - key: unsafe_frail
+            label_key: lawson.unsafe_frail
+            threshold_ms: 15
+          - key: unsafe_all
+            label_key: lawson.unsafe_all
+            threshold_ms: 20
+      required:
+      - exceedance_probability
+      - comfort
+      - safety_probability
+      - safety
+      description: Lawson LDDC defaults (ADR-15); thresholds strictly increasing.
+    Comfort:
+      type: object
+      properties:
+        study_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - pending
+          - running
+          - completed
+          - failed
+        lawson_hash:
+          type: string
+        coverage:
+          type: number
+          minimum: 0
+          maximum: 1
+        partial:
+          type: boolean
+          description: coverage < 0.95 (BR-12)
+        class_areas:
+          type: array
+          items:
+            type: object
+            properties:
+              class:
+                type: string
+              area_m2:
+                type: number
+              percent:
+                type: number
+            required:
+            - class
+            - area_m2
+            - percent
+        safety_areas:
+          type: array
+          items:
+            type: object
+            properties:
+              class:
+                type: string
+              area_m2:
+                type: number
+              percent:
+                type: number
+        image:
+          oneOf:
+          - type: string
+          - type: 'null'
+        field:
+          oneOf:
+          - type: string
+            description: lawson_class.u8
+          - type: 'null'
+      required:
+      - study_id
+      - status
+      - coverage
+      - partial
+    ComparisonDifference:
+      type: object
+      properties:
+        field:
+          type: string
+          enum:
+          - kind
+          - direction
+          - z0
+          - u_ref
+          - dx
+          - grid
+          - analysis_height
+          - section
+        a: {}
+        b: {}
+      required:
+      - field
+      - a
+      - b
+    ComparisonCheck:
+      type: object
+      properties:
+        comparable:
+          type: boolean
+        differences:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComparisonDifference'
+      required:
+      - comparable
+    ComparisonAreas:
+      type: object
+      properties:
+        a:
+          $ref: '#/components/schemas/ZoneAreas'
+        b:
+          $ref: '#/components/schemas/ZoneAreas'
+        reduction:
+          $ref: '#/components/schemas/ZoneArea'
+        thresholds:
+          type: object
+          properties:
+            k_accel:
+              type: number
+            k_stagnation:
+              type: number
+            dk_reduction:
+              type: number
+      required:
+      - a
+      - b
+      - reduction
+      - thresholds
+    ComparisonComfort:
+      type: object
+      properties:
+        a:
+          $ref: '#/components/schemas/Comfort'
+        b:
+          $ref: '#/components/schemas/Comfort'
+      required:
+      - a
+      - b
+    ExportCreate:
+      type: object
+      properties:
+        result_id:
+          type: string
+          format: uuid
+        layer:
+          type: string
+          enum:
+          - k
+          - zones
+          - speed
+          - delta_k
+          - lawson
+        compare_result_id:
+          type: string
+          format: uuid
+        thresholds:
+          type: object
+          properties:
+            k_accel:
+              type: number
+            k_stagnation:
+              type: number
+            dk_reduction:
+              type: number
+        dpi:
+          type: integer
+          minimum: 300
+          maximum: 600
+          default: 300
+      required:
+      - result_id
+      - layer
+      description: delta_k requires compare_result_id (comparable per BR-11).
+    Export:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - failed
+          - cancelled
+        progress:
+          type: number
+        error:
+          oneOf:
+          - $ref: '#/components/schemas/JobError'
+          - type: 'null'
+        file_ready:
+          type: boolean
+      required:
+      - id
+      - status
+      - file_ready
+    ExportAccepted:
+      type: object
+      properties:
+        export_id:
+          type: string
+          format: uuid
+      required:
+      - export_id
+    ReportCreate:
+      type: object
+      properties:
+        study_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+        baseline_study_id:
+          type: string
+          format: uuid
+        include_comfort:
+          type: boolean
+          default: true
+      required:
+      - study_ids
+    ReportAccepted:
+      type: object
+      properties:
+        report_id:
+          type: string
+          format: uuid
+      required:
+      - report_id
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - completed
+          - failed
+          - cancelled
+        progress:
+          type: number
+        error:
+          oneOf:
+          - $ref: '#/components/schemas/JobError'
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - version
+      - status
+    Thresholds:
+      type: object
+      properties:
+        k_accel:
+          type: number
+          default: 1.2
+          exclusiveMinimum: 0
+        k_stagnation:
+          type: number
+          default: 0.3
+          exclusiveMinimum: 0
+        dk_reduction:
+          type: number
+          default: -0.1
+          maximum: 0
+      required:
+      - k_accel
+      - k_stagnation
+      - dk_reduction
+    Settings:
+      type: object
+      properties:
+        thresholds:
+          $ref: '#/components/schemas/Thresholds'
+        lawson:
+          $ref: '#/components/schemas/LawsonTable'
+        turbulence_intensity_default:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.25
+        vegetation_cd:
+          type: number
+          minimum: 0.05
+          maximum: 1.0
+          default: 0.2
+        alternatives_limit:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 8
+      required:
+      - thresholds
+      - lawson
+      - turbulence_intensity_default
+      - vegetation_cd
+      - alternatives_limit
+      description: 'Constraint: k_accel > k_stagnation > 0.'
+    SettingsPatch:
+      type: object
+      properties:
+        thresholds:
+          $ref: '#/components/schemas/Thresholds'
+        lawson:
+          $ref: '#/components/schemas/LawsonTable'
+        turbulence_intensity_default:
+          type: number
+          minimum: 0
+          maximum: 1
+        vegetation_cd:
+          type: number
+          minimum: 0.05
+          maximum: 1.0
+        alternatives_limit:
+          type: integer
+          minimum: 1
+          maximum: 20
+    TemplatePayload:
+      type: object
+      properties:
+        terrain_category:
+          type: string
+        z0_m:
+          type: number
+        thresholds:
+          $ref: '#/components/schemas/Thresholds'
+        lawson:
+          $ref: '#/components/schemas/LawsonTable'
+        facade_defaults:
+          type: object
+      additionalProperties: false
+      description: Never contains location keys (lat, lon, latitude, longitude, elevation, location → 422 template_contains_location).
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+    TemplateCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        payload:
+          $ref: '#/components/schemas/TemplatePayload'
+      required:
+      - name
+      - payload
+    ApplyTemplate:
+      type: object
+      properties:
+        template_id:
+          type: string
+          format: uuid
+      required:
+      - template_id
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired bearer token (code http_error)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Forbidden:
+      description: Authenticated but role lacks permission (code forbidden), e.g. reviewer writing
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    NotFound:
+      description: Missing id or another owner's id — byte-identical bodies
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Conflict:
+      description: Conflicts with current state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Validation:
+      description: Well-formed but invalid (code validation_error or a domain code)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    TooLarge:
+      description: Upload exceeds the size limit (code upload_too_large)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Unavailable:
+      description: A dependency is down (upstream or DB)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    RateLimited:
+      description: Rate limit tier exhausted (code rate_limited)
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'

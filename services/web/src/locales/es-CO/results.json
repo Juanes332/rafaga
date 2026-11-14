@@ -1,0 +1,126 @@
+{
+  "title": "Resultados",
+  "inspectorTitle": "Resultado",
+  "loading": "Cargando el resultado",
+  "summary": "{{alternative}}, viento {{direction}}",
+  "direction": "Dirección",
+  "directionHelp": "De dónde sopla el viento simulado",
+  "layer": {
+    "label": "Capa",
+    "k": "K",
+    "speed": "Velocidad",
+    "lawson": "Lawson"
+  },
+  "zones": "Zonas",
+  "zonesHelp": "Muestra dónde el viento se acelera, se estanca o se reduce",
+  "stats": {
+    "kMean": "K medio",
+    "kMax": "K máx",
+    "kP95": "K p95",
+    "cell": "Tamaño de celda",
+    "device": "Calculado en",
+    "notConverged": "La simulación llegó al límite de tiempo sin estabilizarse del todo. Tómala como orientativa o vuelve a simular con un tamaño de celda mayor."
+  },
+  "flow": {
+    "label": "Campo de viento en planta",
+    "pause": "Pausar",
+    "resume": "Reanudar",
+    "pauseHint": "Espacio también pausa o reanuda",
+    "readout": "K {{k}} — {{speed}}",
+    "static": "Líneas de corriente estáticas: el movimiento está reducido en tu sistema",
+    "staticNoGl": "Líneas de corriente estáticas: este navegador no puede animar el viento",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "fit": "Encuadrar",
+    "north": "Norte",
+    "scale": "Escala"
+  },
+  "legend": {
+    "k": "K, adimensional",
+    "speed": "Velocidad, m/s",
+    "dk": "ΔK, adimensional",
+    "saturated": "Valores mayores que {{max}} se muestran con el color del extremo",
+    "thresholdAccel": "Umbral de aceleración {{value}}",
+    "thresholdStag": "Umbral de estancamiento {{value}}"
+  },
+  "zone": {
+    "title": "Zonas",
+    "acceleration": "Aceleración",
+    "stagnation": "Estancamiento",
+    "reduction": "Reducción",
+    "area": "Área",
+    "percent": "% del área libre",
+    "empty": "No hay zonas con los umbrales actuales."
+  },
+  "lawson": {
+    "title": "Confort Lawson",
+    "coverage": "Cobertura de la rosa de vientos: {{value}}",
+    "partial": "Parcial",
+    "partialHelp": "Faltan direcciones por simular: la rosa simulada cubre menos del 95 % del tiempo. Simula más direcciones para un resultado completo.",
+    "classes": {
+      "A": "Sentarse",
+      "B": "Estar de pie",
+      "C": "Pasear",
+      "D": "Caminar con prisa",
+      "E": "Incómodo",
+      "S15": "Riesgo 15 m/s",
+      "S20": "Riesgo 20 m/s"
+    },
+    "notes": {
+      "A": "Viento suave casi siempre: cómodo para terrazas, bancas y zonas de estar.",
+      "B": "Cómodo para esperar de pie, entradas y paradas de bus; poco recomendable para sentarse mucho rato.",
+      "C": "Cómodo para pasear sin prisa; no es un buen lugar para quedarse quieto.",
+      "D": "Solo cómodo para cruzar caminando rápido; evita entradas y estancias aquí.",
+      "E": "Incómodo para casi cualquier actividad: conviene una estrategia de fachada o un cambio de forma.",
+      "S15": "Ráfagas que pueden desequilibrar a personas frágiles y ciclistas. Revisa esta zona con prioridad.",
+      "S20": "Ráfagas peligrosas para cualquier peatón. Esta zona necesita un cambio de diseño."
+    },
+    "selectClass": "Elige una clase para ver qué significa",
+    "recompute": "Recalcular con la tabla actual",
+    "recomputing": "Recalculando confort",
+    "recomputeHelp": "Si cambiaste la tabla Lawson en Ajustes, recalcula sin volver a simular.",
+    "pending": "El confort aún se está calculando.",
+    "failed": "No se pudo calcular el confort. Recalcula para intentarlo de nuevo."
+  },
+  "export": "Exportar PNG",
+  "section": {
+    "tool": "Trazar corte",
+    "toolActive": "Haz clic en el lado de barlovento y luego en el de sotavento",
+    "title": "Corte vertical",
+    "lead": "Traza una línea sobre la planta, desde donde llega el viento hacia donde se va. El corte muestra cómo pasa el aire por encima y alrededor de los edificios.",
+    "upwind": "Barlovento",
+    "downwind": "Sotavento",
+    "length": "Longitud del corte",
+    "against": "El corte va contra el viento. Empieza la línea en el lado de donde sopla el viento.",
+    "launch": "Simular corte vertical",
+    "launching": "Simulando corte",
+    "launched": "Simulación en curso: sigue su progreso en Simular",
+    "clear": "Borrar corte",
+    "needTwo": "Marca los dos extremos del corte en la planta.",
+    "heightAxis": "Altura, m",
+    "distanceAxis": "Distancia a lo largo del corte, m",
+    "viewLabel": "Corte vertical de velocidad"
+  },
+  "view3d": {
+    "open": "Ver en 3D",
+    "close": "Ver planta",
+    "label": "Vista 3D del resultado",
+    "loading": "Cargando la vista 3D",
+    "help": "Arrastra para girar, rueda para acercar, clic derecho para desplazar."
+  },
+  "notFound": "Este resultado no existe. Vuelve a Simular para ver los resultados disponibles.",
+  "goSimulate": "Ir a Simular",
+  "warnings": {
+    "title": "Avisos del cálculo",
+    "element_not_representable_2d": "Algunas estrategias de fachada (marquesinas, aletas o celosías en altura) no se pueden representar en planta 2D. Valida esta alternativa con una simulación 3D.",
+    "low_reynolds": "Los edificios quedan con pocas celdas de altura: la estela puede salir algo más larga. Usa un tamaño de celda menor si necesitas más precisión.",
+    "local_mach_spikes": "Hubo velocidades muy altas en unos pocos puntos. El resultado general es válido; revisa con cuidado las esquinas más agudas.",
+    "convergence_cap_reached": "El cálculo alcanzó su tiempo máximo antes de estabilizarse del todo. Tómalo como orientativo.",
+    "below_analysis_height": "Algún elemento queda por debajo de la altura de análisis de 1,5 m y no aparece en el mapa en planta.",
+    "domain_top_capped": "El dominio 3D se recortó por memoria; los edificios muy altos pueden tener menos precisión.",
+    "element_orphaned": "Una estrategia de fachada se omitió porque su edificio o fachada ya no existe. Revísala en el paso Alternativas.",
+    "element_degenerate": "Una estrategia de fachada se omitió porque su forma quedó demasiado pequeña o inválida. Ajusta sus medidas.",
+    "setback_tiers_truncated": "El retranqueo escalonado se detuvo antes de llegar arriba porque un escalón quedó demasiado pequeño.",
+    "above_building_clamped": "Un elemento sobrepasaba la altura del edificio y se recortó a esa altura."
+  }
+}

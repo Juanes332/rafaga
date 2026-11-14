@@ -1,0 +1,12 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 72ch;
+  padding: var(--space-8) var(--space-6);
+}
+
+.title {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg-lh);
+}

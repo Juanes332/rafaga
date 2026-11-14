@@ -1,0 +1,616 @@
+# Ráfaga — architecture plan (Phase 2, software-architect schema).
+# Machine-readable. Prose companion: architecture.md. Contracts: contracts/. ADRs: adr/.
+# Schema extensions (documented in architecture.md §11): every deliverable row carries
+# `work_package`; kind `artifact` is used for non-code deliverables (images, scripts,
+# compose, README, shared front-end engines) that the four base kinds cannot express.
+
+project_name: rafaga
+shape: services
+stack_kind: fullstack
+
+skill_bindings:
+  - component: api
+    technology: python+fastapi
+    skill: fastapi-senior
+    path: services/api
+  - component: solver
+    technology: python+fastapi (health only) + cupy/numpy LBM worker
+    skill: fastapi-senior
+    path: services/solver
+    note: >-
+      The FastAPI surface is GET /health only; the rest of the service is a queue worker.
+      fastapi-senior governs layout (configs/core/models/routers/services/repositories),
+      TDD with pytest, error contract, logging and the container. Numerical kernels live
+      under app/services/<domain>/ like any other business logic.
+  - component: web
+    technology: react+vite+typescript
+    skill: react-senior
+    also: [frontend-design]
+    path: services/web
+  - component: db
+    technology: postgres (official image, floor 16)
+    skill: none-official-image
+    note: Official postgres image, no custom build. Schema owned by api (Alembic).
+  - component: ops
+    technology: docker compose + POSIX sh + PowerShell + cmd wrapper
+    skill: engineering-canon
+    derived_from: fastapi-senior
+    note: >-
+      No dedicated skill for distribution scripts. The canon applies: config through the
+      environment, secrets never printed or committed, files <=200 lines, functions <=30,
+      English comments, internal ports fixed and published ports free (ports.md),
+      no nginx, named volumes only.
+
+database: postgres
+
+decisions:
+  - id: ADR-01
+    decision: "Four runtime services: api, solver, web, db (services shape)."
+    why: >-
+      The solver needs a CUDA-capable Python image, long-running GPU jobs and crash
+      isolation; the api must stay responsive while a 60-minute 3D run holds the GPU.
+      The web SPA is static and must be its own image. Postgres is both store and queue.
+    rejected: >-
+      Modular monolith with an in-process worker (GPU wheels in the api image, one OOM
+      kills the API); separate worker-2d/worker-3d (user merged them: one LBM code base);
+      OpenFOAM worker (user replaced it with LBM D3Q19).
+  - id: ADR-02
+    decision: "Postgres is the job queue: jobs table, FOR UPDATE SKIP LOCKED claim, LISTEN/NOTIFY wake-up with 2 s polling fallback."
+    why: One component fewer; transactional enqueue with the study row; progress and cancel live in the same row the UI polls.
+    rejected: Redis+RQ/Celery (extra service, two sources of truth); RabbitMQ (heavier, no persistence of progress).
+  - id: ADR-03
+    amended_by: ADR-27  # C-3: the steady mixing-length deviation of the solver is superseded; volume3d is LES again
+    decision: "Single LBM code base: D2Q9 (plan, section) and D3Q19 (volume) with regularized BGK collision + Smagorinsky LES, array-module abstraction xp=cupy|numpy, fused CuPy RawKernels on GPU and slab-parallel NumPy on CPU."
+    why: >-
+      LBM is local, bandwidth-bound and maps directly to GPU; voxel masks handle arbitrary
+      geometry; one code path for 2D/3D; CPU fallback is the same algorithm (equivalence
+      test <=2 % mean K).
+    rejected: >-
+      OpenFOAM (CPU-only, multi-GB image); custom finite-volume Navier-Stokes (pressure
+      solver hard on GPU); Numba-CUDA/Taichi/Warp (extra toolchains, weaker CPU fallback
+      story); pure CuPy ufunc chains (too many kernel launches, < 100 MLUPS 3D).
+  - id: ADR-04
+    decision: "api owns geometry: import, parametric model, facade generation, validation and grid specification; it emits a canonical scene JSON (contracts/scene.schema.json) and a resolved grid inside each job payload. solver only rasterizes/voxelizes."
+    why: >-
+      Geometry is needed synchronously by the editor (validation, preview, scene) while
+      the solver may be busy for an hour. One owner means 2D and 3D are fed by the same
+      model (FR-34) and no geometry code is duplicated.
+    rejected: Shared Python package vendored into both images (couples two parallel work packages and their release cadence); solver-owned geometry (api would need a solver round-trip to validate a drawing).
+  - id: ADR-05
+    decision: "SPA discovers the api through a runtime /config.json written by the web container entrypoint from RAFAGA_API_PORT; host ports are kernel-assigned on first start, then persisted in .env by the start script and bound to 127.0.0.1."
+    why: >-
+      VITE_* are build-time; a kernel-assigned port is known only after `up`. Persisting
+      the first kernel-assigned ports gives users a stable, bookmarkable URL; the SPA builds
+      the api URL as location.protocol//location.hostname:apiPort so localhost and 127.0.0.1
+      both work; a busy persisted port is cleared and re-assigned by the kernel (US-15).
+    rejected: >-
+      VITE_API_URL build arg (rebuild on every port change); nginx or any reverse proxy
+      (forbidden, extra root process); api serving the SPA (forbidden); hardcoded 3000/8000
+      (collide); script scanning for a free port then binding it (TOCTOU race).
+  - id: ADR-06
+    decision: "Local accounts: argon2id hashes, HS256 JWT bearer (TTL 12 h) kept in sessionStorage; first-run setup endpoint works only while users table is empty (advisory lock); optional ADMIN_EMAIL/ADMIN_PASSWORD insert-if-absent seed; roles architect|reviewer."
+    why: FR-01/FR-02/FR-03; no cookies means no CSRF across the two localhost ports; sessionStorage survives reload (US-10 progress recovery).
+    rejected: Cookie sessions (cross-port SameSite/CORS credentials complexity); no auth on localhost (violates FR-02); OAuth/OIDC (needs an IdP, offline install).
+  - id: ADR-07
+    decision: "Job progress by polling GET /api/v1/simulations/{id} every 1 s (TanStack Query refetchInterval) while any job is active."
+    why: NFR-06 requires <=2 s; bearer header works on fetch; zero extra infrastructure.
+    rejected: SSE (EventSource cannot send Authorization; token-in-URL leaks to logs); WebSocket (extra protocol, auth inside handler, reconnect logic).
+  - id: ADR-08
+    decision: "Open-Meteo (geocoding, elevation, ERA5 archive) called only by api, cached in Postgres external_cache; ERA5 key = coordinates rounded to 0.1 deg + period, TTL 365 d; elevation key rounded to 4 decimals, TTL 365 d; geocoding TTL 30 d."
+    why: FR-12..FR-15, NFR-15 (only rounded coordinates leave the machine), offline reuse, single egress point.
+    rejected: Browser calls Open-Meteo directly (no cache sharing, no offline, leaks exact coordinates); station datasets (sparse, often keyed).
+  - id: ADR-09
+    decision: "Map: MapLibre GL JS with OSM raster tiles fetched through an authenticated api tile proxy with on-disk LRU cache (500 MB, honours upstream Cache-Control, min 7 d), identifying User-Agent, visible attribution; TILE_URL_TEMPLATE configurable."
+    why: Q-4 offline re-use of already-viewed areas, OSM tile policy compliance (no bulk prefetch, valid UA, attribution), single egress.
+    rejected: Direct browser→OSM (no offline, no UA control); self-hosted vector planet/regional extracts (GBs of download, breaks 15-min install); keyed providers (MapTiler/Mapbox need accounts); bulk prefetch (violates OSM policy).
+  - id: ADR-10
+    amended_by: ADR-27  # volume3d domain top 5H (blockage < 3 % kept)
+    decision: "Q-1 VRAM/RAM-aware estimator and automatic coarsening: bytes/node constants (D2Q9 104 B, D3Q19 224 B) + 512 MiB overhead against a device budget (GPU 0.85*VRAM_total-512 MiB; CPU 0.6*MemAvailable, 3D capped at CPU_MAX_NODES_3D=3e6); proposed dx = dx*(need/budget)^(1/d) rounded up to 0.25 m; reject if smallest building width < 4 cells after coarsening."
+    why: FR-40, US-09/US-10 negative scenarios; 25 M nodes*224 B = 5.6 GB fits the 8 GB reference GPU (NFR-02 <=7.2 GB).
+    rejected: Shrinking BR-16 domain margins (breaks a product rule); mixed precision fp16 populations (stability risk at high Re); multi-resolution grid refinement (too complex for R1).
+  - id: ADR-11
+    decision: "Q-2 convergence: time measured in flow-throughs FT = nx/u_lat; spin-up (2D 2 FT, 3D 1.5 FT) then running time-average; every 0.25 FT compare the windowed mean field at analysis height; converged when relative L2 change < 1 % and mean |U| change < 1 % for 3 consecutive checks after the minimum (2D 2 FT, 3D 2 FT); hard cap (2D 8 FT, 3D 6 FT) completes with converged=false and a warning."
+    why: A-10; statistically averaged K for unsteady LES/shedding flows; deterministic upper bound for ETA.
+    rejected: Residual-based steady criteria (meaningless for unsteady LBM); fixed step count (wastes time or under-averages).
+  - id: ADR-12
+    amended_by: ADR-27  # volume3d inflow: synthetic turbulence replaces the 2 % perturbation; steady mixing-length deviation superseded
+    decision: "Q-3 boundary conditions: inlet = regularized velocity BC with shifted log-law u(z)=(u*/κ)ln((z+z0)/z0) (2D plan: uniform U_ref(z_a)), 3D seeded 2 % random perturbation; outlet = constant-density (ρ=1) regularized pressure BC + sponge (last 10 % of domain, τ ramp to 1.0); top and lateral = free-slip specular; ground = halfway bounce-back + log-law wall-function drag force (Guo) in first fluid layer; buildings = halfway bounce-back."
+    why: Keeps the ABL profile horizontally homogeneous with unresolved z0 (z0 up to 2 m at dx 1-2 m), absorbs outflow reflections, standard for LBM urban LES.
+    rejected: Zou-He inlet (unstable at low τ); periodic streamwise (needs precursor); no-slip top (spurious shear); resolving roughness elements (unaffordable).
+  - id: ADR-13
+    decision: "Q-3 porosity: Forchheimer body force via Guo forcing, semi-implicit velocity update. Screens: Idelchik thin perforated plate ζ(β)=((0.707*sqrt(1-β)+1-β)/β)^2 spread over the layer thickness Δn (>=1 cell), F=-ρ ζ/(2Δn)|u_n|u_n on the normal component; vegetation: F=-ρ C_d LAD |u| u with C_d=0.2 (setting); sub-grid thin solids (coverage < 0.5 of a cell from 4x supersampling) become porous cells with β=1-coverage."
+    why: FR-29/FR-33, BR-10 (β 0.05-0.95 → ζ 1075..0.05); fins and screens thinner than dx stay physically represented instead of vanishing or becoming walls.
+    rejected: Partial bounce-back (Walsh) (calibration less transparent, tied to τ); Darcy linear term (viscous regime irrelevant at Re~1e6); ignoring sub-grid elements.
+  - id: ADR-14
+    decision: "LBM unit conversion: inlet reference velocity u_lat=0.05 at the top of the inlet profile (Ma=0.087<=0.1); dt=u_lat*dx/U_phys; molecular ν_lat=max(ν_phys*dt/dx^2, 5e-5); τ0=0.5+3ν_lat; Smagorinsky C_s=0.17 (Hou et al. local Π^neq form); τ_eff clamped to [0.5005, 2.0]; abort with numerical_instability if local Ma>0.35 or NaN."
+    why: Reynolds-number independence of sharp-edged bluff-body flows (Re_H>2e4) justifies an effective lattice Re; regularized collision + LES keeps τ near 0.5 stable.
+    rejected: Matching physical Re (τ→0.5, unstable); u_lat 0.1 (Ma 0.17 at inlet, 0.35 at corners); MRT collision (more memory/ops, regularized BGK is enough with LES).
+  - id: ADR-15
+    decision: "Q-5 Lawson LDDC defaults: comfort classes by 5 % exceedance — sitting 4 m/s, standing 6 m/s, strolling 8 m/s, business walking 10 m/s, uncomfortable >10 m/s; safety by 0.025 % exceedance — 15 m/s (frail/cyclists) and 20 m/s (general public). Effective speed max(mean, GEM), GEM=U(1+3I)/1.85; exceedance from per-sector Weibull fits of ERA5 U10 transferred to site roughness through a 60 m blending height (z0_ref=0.03 m); renormalised over simulated sectors and flagged partial when coverage < 95 %."
+    why: BR-05/BR-12/FR-44; table editable in settings; Weibull keeps the computation closed-form per cell.
+    rejected: Davenport or NEN 8100 as default (user asked LDDC); empirical histogram per sector (noisy tails at 0.025 %).
+  - id: ADR-16
+    decision: "Q-6 CPU limits: minimum 4 cores/8 GB RAM (2D only), recommended 16 cores/32 GB for 3D on CPU; CPU 3D capped at CPU_MAX_NODES_3D=3e6 and auto-coarsened to it; hosts with <16 GB RAM get a 1.5e6 cap and a 2D-first recommendation; Docker Desktop memory (.wslconfig) documented."
+    why: NFR-03 (<=3 M nodes in <=90 min on 16 cores), Docker Desktop defaults to 50 % of host RAM.
+    rejected: No cap (multi-hour silent runs); refusing 3D on CPU entirely (FR-38 requires fallback).
+  - id: ADR-17
+    amended_by: ADR-29  # cupy-cuda12x + runtime/nvrtc wheels instead of [ctk]
+    decision: "Q-7 GPU verification: start scripts run `nvidia-smi -L`; if it succeeds they build and run `docker compose -f compose.yaml -f compose.gpu.yaml run --rm --no-deps solver python -m app.services.device.device_probe` which allocates and runs a CuPy RawKernel; exit 0 → keep compose.gpu.yaml, else warn and start CPU-only. CuPy comes from cupy-cuda12x[ctk] wheels on python:3.12-slim (no CUDA base image); driver from host (NVIDIA Container Toolkit / WSL2)."
+    why: Same check on Linux and Windows; catches driver/toolkit/WSL kernel mismatches before the user launches a job (FR-06, US-15).
+    rejected: Trusting nvidia-smi alone (host OK but container runtime missing is common on Windows); nvidia/cuda base images (+3 GB, not resolvable through runtimes.yaml).
+  - id: ADR-18
+    decision: "One named volume rafaga-data mounted at /data in api and solver (both uid/gid 10001), plus rafaga-db for Postgres. Fields stored as raw little-endian float32 files + an .npz bundle; metadata in Postgres."
+    why: NFR-12 named volumes only; zero-copy streaming of fields to the browser; npz/CSV exports (NFR-22).
+    rejected: Fields as Postgres bytea (bloat, vacuum); object store (MinIO) (extra service); bind mounts (Windows path issues).
+  - id: ADR-19
+    decision: "solver owns every numeric artefact (K, zones previews, Lawson aggregate, export PNG at >=300 dpi, PDF report via WeasyPrint) on a light lane; api computes zone areas with numpy from stored K fields; the browser re-thresholds zones client-side."
+    why: One owner of colormaps and plotting code (matplotlib+cmocean); NFR-05 (<=2 s re-zoning) without queueing behind a 3D run; light lane runs concurrently with the heavy lane.
+    rejected: api renders PNG/PDF (duplicate cmocean code in two images); browser-generated PDF (no 300 dpi, inconsistent typography).
+  - id: ADR-20
+    decision: "Shifted log-law U(z)=(u*/κ)ln((z+z0)/z0), κ=0.41, u*=κU10/ln((10+z0)/z0) replaces the literal BR-07 form."
+    why: BR-08 allows z0=2.0 m > z_a=1.5 m where ln(z/z0) is negative; the shifted form equals BR-07 for z>>z0.
+    rejected: Displacement height d (extra parameter users cannot estimate); clamping z to z0 (discontinuous K).
+  - id: ADR-21
+    decision: "Front-end: react-senior stack + frontend-design system (contracts/design-system.md); MapLibre GL for location, SVG metric editor, react-three-fiber for 3D, custom WebGL2 particle advection as the memorable element, cmocean LUTs, self-hosted Hanken Grotesk + Literata via @fontsource, i18next es-CO."
+    why: FR-45/FR-49/FR-52/NFR-07; self-hosted fonts keep NFR-15 egress limited to Open-Meteo and OSM.
+    rejected: Google Fonts CDN (extra egress); deck.gl (heavy for one particle layer); Leaflet (no WebGL layer for particles over map); MUI/Uko (not requested).
+  - id: ADR-22
+    decision: "Solver process model: uvicorn serves /health; a supervisor runs a heavy lane (1 job at a time, executed in a spawned child process) and a light lane (LIGHT_LANE_CONCURRENCY=2 threads, CPU only); cancel is cooperative (checked every <=1 s) with hard kill at 8 s."
+    why: US-09 cancel <=10 s, GPU memory always released, a crashing kernel cannot kill /health or the light lane.
+    rejected: Threads only (cannot force-free GPU memory, cancel unreliable); one process per job type service (more images).
+  - id: ADR-23
+    decision: "Comparability (BR-11): api derives a project-level output grid from base-building bounds (+2 H_max margin, + max facade outward extent) so every alternative/direction of the same kind and dx lands on identical cells; each result stores comparability_key=sha256(kind, direction, z0, U_ref, dx, output grid, analysis height, section line)."
+    why: ΔK per cell without resampling; incompatibility is a key mismatch with an itemised diff.
+    rejected: Resample on compare (interpolation error masquerading as ΔK).
+  - id: ADR-24
+    decision: "Importers: ezdxf (closed LWPOLYLINE/POLYLINE; height from layer-name number, XDATA/attribute 'height', or missing_height), trimesh for STL/OBJ (per connected body, horizontal slicing every 3 m → stacked tiers), ifcopenshell (R2, IfcBuilding*/IfcBuildingElement axis-aligned bounding boxes); everything becomes buildings with footprint + tiers."
+    why: Facades attach to footprint edges; tiers preserve massing; uniform scene primitives (prisms).
+    rejected: Passing raw meshes to the solver (facade attachment impossible, voxelizer must handle non-watertight meshes).
+  - id: ADR-25
+    amended_by: ADR-29  # optional registry pull via RAFAGA_IMAGE_REGISTRY
+    decision: "Distribution: root start/stop/reset entry points (.sh, .ps1, .bat) delegating to scripts/rafaga.sh and scripts/rafaga.ps1; compose project name 'rafaga'; secrets generated on first run into .env (never printed); ports bound to 127.0.0.1; reset requires typing 'borrar'."
+    why: FR-06..FR-08, NFR-09..NFR-12, OOS-6 (local only).
+    rejected: Native installers (per-OS packaging); registry images (OOS-9, optional later); binding 0.0.0.0 (exposes the app to the LAN).
+  - id: ADR-26
+    decision: "Rate limits (two tiers per canon): RATE_LIMIT_ANON_PER_MINUTE=120 by address, RATE_LIMIT_PER_MINUTE=600 by principal, RATE_LIMIT_LOGIN_PER_MINUTE=10 on /auth/login and /auth/setup, tiles budget RATE_LIMIT_TILES_PER_MINUTE=1500 by principal; in-memory store (single replica)."
+    why: The SPA polls at 1 Hz and MapLibre bursts dozens of tile requests per pan; login is the brute-force surface.
+    rejected: Skill defaults 120/60 (1 Hz polling alone exhausts 60/min); shared Redis store (single replica).
+
+  - id: ADR-27
+    decision: "volume3d turbulence (BL-01/BL-02): Smagorinsky LES (C_s 0.17, Hou et al.) with length scale min(C_s dx, kappa d_wall) as the only eddy viscosity; the steady Prandtl mixing length kappa(z+z0) is removed from the volume3d interior; ACCEPTED DEVIATION (user decision, ADR-27 amendment): hybrid closure = first 6 wall layers at 0.8 kappa min(z+z0,d_wall) plus PI far-field profile nudging (section2d/plan2d keep theirs); synthetic inflow turbulence by the Xie & Castro (2008) forward-stepwise digital filter (L_y=L_z~H, L_x~2H, target I_u(z)=1/ln((z+z0)/z0) clipped to 0.15-0.30, I_v=0.75 I_u, I_w=0.5 I_u) replaces the 2 % seeded perturbation; wall-law drag on the first layer and top shear force u*^2 are kept; resolved ti=sigma_u/U_mean at z_a feeds Lawson GEM; volume3d domain top 5H instead of 6H (blockage < 3 % still enforced, top raised if needed)."
+    why: >-
+      The steady mixing-length deviation kept the mean profile (K 1.00-1.05) but made 3D
+      effectively URANS: resolved ti ~ 0 and the Lawson gust factor fell to G=1, so 3D
+      lost the resolved gusts that justify it (C-3, FR-37, ADR-15). The digital filter only
+      costs two inlet planes of memory; 5H saves ~17 % of nodes so typical cases fit the
+      8 GB budget of ADR-10 despite longer LES averaging. Explicit amendment of BR-16 (6H)
+      for volume3d only.
+    rejected: >-
+      Keeping the steady mixing length (no gusts); periodic precursor domain (2x memory and
+      time, does not fit 8 GB at 25 M nodes); resolved Irwin spires/roughness upstream
+      (several extra H of fetch at fine dx); SEM / random Fourier inflow (costlier per step,
+      more parameters); WALE/Vreman SGS (the issue was the added mixing length, not
+      Smagorinsky; revisit if SOL-16 demands); URANS k-epsilon (not LBM-native, no gusts).
+  - id: ADR-28
+    decision: "Device capability flows solver -> db -> api -> web (BL-06): the solver probes its device and runs a short micro-benchmark at start-up, upserts solver_nodes (device, gpu_name, vram, ram budget, cores, mlups_2d, mlups_3d) and heartbeats every 5 s; the api reads the freshest row (offline after 30 s) and exposes it only through the authenticated GET /api/v1/system/status (API-09) and the estimate (API-46: effective device + eta_seconds from mlups_3d); the web shows the device badge and, for volume3d with an effective cpu device, a modal with ETA, node count and the NFR-03 limit that requires explicit confirmation before POST /simulations."
+    why: NFR-03 requires an estimate before a CPU 3D run; the SPA must never talk to the unpublished, user-auth-less solver (ADR-01); every value already exists in solver_nodes, so no table or endpoint is added.
+    rejected: SPA querying the solver (breaks ADR-01); a new /system/capabilities endpoint (duplicates API-09); a mandatory confirm_cpu_3d flag on POST /simulations (contract churn, UX risk not security risk; ADR-16 hard limits still apply); always blocking 3D on CPU (NFR-03 allows a reduced case).
+  - id: ADR-29
+    decision: "Solver image slimmed to <=3 GB (BL-05): multi-stage python:3.12-slim with cupy-cuda12x + nvidia-cuda-runtime-cu12 + nvidia-cuda-nvrtc-cu12 pinned together instead of cupy-cuda12x[ctk], no compilers/headers/caches/tests in the final stage; optional registry pull: RAFAGA_IMAGE_REGISTRY empty (default) builds locally as before, set -> compose uses ${RAFAGA_IMAGE_REGISTRY}/rafaga-<svc>:${RAFAGA_VERSION} and start scripts pull, falling back to a local build on failure; tags are fixed versions, never latest; no registry credentials in the repo."
+    why: The solver only uses RawKernel, elementwise and reductions (runtime + NVRTC); [ctk] adds ~2.5 GB of cuBLAS/cuFFT/cuSOLVER/cuSPARSE/cuRAND/NPP it never loads; 5.5 GB slows the first start on laptops; slow machines benefit from a prebuilt image.
+    rejected: nvidia/cuda runtime base (~3 GB base alone, rejected in ADR-17); keeping [ctk]; separate CPU and GPU images (more compose/script complexity); mandatory registry (breaks offline use and local build of ADR-25).
+
+contracts:
+  developer:
+    spec: >-
+      Ráfaga is a local, location-agnostic web app for pedestrian-level (default 1.5 m,
+      0.5-3.0 m) urban wind screening. Repo root /home/juanhez/Documents/juanhez/projects/rafaga:
+      services/api (fastapi-senior), services/solver (fastapi-senior, /health only),
+      services/web (react-senior + frontend-design), scripts/ + root start/stop/reset
+      wrappers + compose.yaml + compose.gpu.yaml (WP-OPS), docs/. NO preset location, sample
+      project, coordinates, elevation, density or wind data anywhere in code, migrations,
+      seeds or defaults (BR-18); test fixtures use synthetic coordinates and recorded
+      HTTP responses.
+
+      API (base /api/v1, contract contracts/openapi.yaml, the source of truth for paths and
+      schemas). Auth: argon2id + HS256 JWT bearer (JWT_SECRET, JWT_TTL_MINUTES=720).
+      PUBLIC_PATHS = /health, /api/v1/auth/setup-status, /api/v1/auth/setup,
+      /api/v1/auth/login. Setup only while zero users (pg_advisory_xact_lock), else 409
+      setup_already_done. Optional ADMIN_EMAIL/ADMIN_PASSWORD seed is insert-if-absent.
+      Roles: architect (read/write, can create users and share projects) and reviewer
+      (read-only on projects shared with them; any write or job launch → 403 forbidden).
+      Ownership: a project the caller neither owns nor has a share on → 404 with a
+      byte-identical body to a missing id (code project_not_found); same for every child
+      resource (alternatives, elements, studies, jobs, results, exports, reports,
+      backgrounds). Error body {code, message, details?, hint?}; messages Spanish-ready
+      codes, English messages, the SPA maps codes to es-CO copy.
+
+      Data model (Postgres, Alembic migrations owned by api; tables listed as ENT rows; the
+      job tables jobs, studies, results, comfort_results, exports, reports, solver_nodes,
+      schema_meta are a shared contract with the solver defined column-by-column in
+      contracts/job-contract.md). Project: name, lat/lon nullable until the user places
+      it, elevation_m + elevation_source (open_meteo|manual), air_density_kg_m3 computed
+      by ISA ρ=1.225(1-2.25577e-5 h)^4.25588 (BR-06), analysis_height_m (default 1.5).
+      Wind climate per project: source era5|manual, rose (16 sectors centred on
+      0,22.5..337.5 deg, meteorological 'from' convention; per sector frequency, mean,
+      p50, p90, max, weibull_k, weibull_c; calm fraction < 0.5 m/s), period_years
+      (default 10), manual_direction_deg + manual_u10_ms, terrain_category + z0_m
+      (BR-08: open_sea 0.0002, open 0.03, suburban 0.3, urban 1.0 default, dense_urban
+      2.0). Geometry per project (= base case): versioned list of buildings {id, name,
+      footprint (local ENU metres, CCW, no repeated closing vertex), holes, height_m
+      (1-500), tiers?, source, missing_height}; editor saves the whole set with
+      expected_version (409 version_conflict); when non-base alternatives exist a change
+      needs confirm_base_change=true (409 base_locked otherwise, BR-09). Alternatives: one
+      base per project (is_base, undeletable) + up to ALTERNATIVES_LIMIT_DEFAULT=8
+      (user setting) derived ones (409 alternatives_limit). Facade elements: {building_id,
+      edge_index, type screen|fins|canopy|setback|vegetation, params} with ranges and
+      defaults served by GET /api/v1/facade-strategies (min-max, default: screen porosity
+      0.05-0.95 0.40, height_m 0.5-50 3.0 clamped to building height, offset_m 0-5 0.5,
+      fixed thickness 0.1; fins depth_m 0.1-3.0 0.5, pitch_m 0.3-10 1.0, thickness_m
+      0.05-0.5 0.15, height_m 1-500 null=building height; canopy overhang_m 0.5-6.0 2.0,
+      height_m 2.5-10 3.5, fixed thickness 0.3; setback setback_m 0.1-5.0 1.0,
+      floor_height_m 2.5-6.0 3.0, start_floor 1-100 1; vegetation lad_m2_m3 0.1-5.0 1.0,
+      height_m 1-30 8.0, width_m 0.5-5.0 3.0, offset_m 0-5.0 1.0; maximum outward reach
+      10 m = FACADE_ENVELOPE_M). Out-of-range values are clamped and reported in
+      `adjustments` (US-08). The api compiles alternative → canonical scene
+      (contracts/scene.schema.json) and resolves the simulation grid (BR-16 margins 5H
+      upstream, 15H downstream, 5H lateral, 6H top (5H in volume3d, ADR-27), blockage < 3 % in 3D) plus the
+      project-level output grid (ADR-23), snapshots both into each job payload.
+
+      Simulations: POST /simulations creates a study (alternative, kind plan2d|section2d|
+      volume3d, directions ≤16 or a section line, dx_m, device auto|cpu|gpu,
+      auto_coarsen) and one job per direction on the heavy lane in a single transaction,
+      then NOTIFY rafaga_jobs. Estimate uses solver_nodes capabilities (ADR-10). Studies
+      with an ERA5 rose carry an aggregate_template; the solver enqueues the aggregate
+      job (Lawson, ADR-15) when the study's last job finishes. Results expose metadata, raw float32 fields
+      (K, ux, uy, uz, speed, mask, ti), preview PNGs, 3D viewer manifest, npz/csv
+      downloads; zone areas (BR-02..BR-04, thresholds as query params) are computed by
+      api with numpy. Comparisons are stateless: check (BR-11 via comparability_key,
+      422 results_incomparable with differences[]), areas, comfort. Exports (PNG ≥300 dpi
+      with legend, scale bar, north arrow, reference wind, disclaimer) and PDF reports
+      (A4, project data, location, rose, parameters, maps, area table, Lawson, FR-48
+      disclaimer) are light-lane jobs rendered by the solver. External data (ADR-08,
+      ADR-09) only through the api. Settings per user: k_accel 1.2, k_stagnation 0.3,
+      dk_reduction -0.1, Lawson table, turbulence_intensity_default 0.25 (2D GEM),
+      vegetation_cd 0.2, alternatives_limit 8. Templates (R3) never contain location.
+
+      Solver: claims jobs (contracts/job-contract.md), selects device (RAFAGA_DEVICE
+      auto|cpu|gpu, per-job override), voxelizes the scene, runs D2Q9/D3Q19 per
+      ADR-12..ADR-14 with convergence per ADR-11, writes fields/PNGs/manifest under
+      /data/results/{project_id}/{study_id}/{job_id}/ and inserts the results row in the
+      same transaction that marks the job completed; publishes progress/phase/eta every
+      ~1 s, heartbeat in solver_nodes every 5 s, honours cancel_requested within 10 s,
+      marks orphaned running jobs failed+resumable on start. Validation suite (FR-41):
+      square cylinder St 0.13-0.15, AIJ case A recirculation, CPU/GPU ΔK̄ ≤2 %.
+
+      Web: SPA with step rail Proyecto → Geometría → Viento → Alternativas → Simular →
+      Comparar, central canvas, right inspector, full-screen compare with keyboard swipe
+      slider, animated particle flow on plan results (static under
+      prefers-reduced-motion), cmocean speed (K) and balance (ΔK) with numeric legends,
+      zones distinguishable without colour (hatch patterns + labels), WCAG 2.2 AA,
+      es-CO copy externalised (i18next), light/dark themes. API base URL from runtime
+      /config.json (ADR-05); bearer token in sessionStorage; binary fields fetched with
+      the bearer and drawn client-side; images fetched as blobs (no token in URLs).
+
+      Ops: compose project 'rafaga'; ports 127.0.0.1:${RAFAGA_WEB_PORT:-0}:3000 and
+      127.0.0.1:${RAFAGA_API_PORT:-0}:8000, solver and db unpublished; start scripts
+      implement ADR-05/ADR-17/ADR-25; README in Spanish.
+    deliverables:
+      # ---------------- WP-API (fastapi-senior) — services/api ----------------
+      - {id: ENT-01, work_package: WP-API, kind: entity, name: users, acceptance: "Alembic migration creates users(id uuid, email citext unique, password_hash argon2id, role architect|reviewer, created_at) and a test proves the hash never appears in any response model."}
+      - {id: ENT-02, work_package: WP-API, kind: entity, name: projects, acceptance: "projects(id, owner_id, name, lat, lon, elevation_m, elevation_source, air_density_kg_m3, analysis_height_m default 1.5, created_at, updated_at) with lat/lon/elevation/density nullable and no column default holding a location value."}
+      - {id: ENT-03, work_package: WP-API, kind: entity, name: project_shares, acceptance: "project_shares(project_id, user_id, created_at) PK(project_id,user_id), cascade on project delete; reviewer read access is resolved through this table in the ownership guard."}
+      - {id: ENT-04, work_package: WP-API, kind: entity, name: geometries, acceptance: "geometries(project_id PK, version int, buildings jsonb validated against the Building schema of openapi.yaml, updated_at); PUT with a stale expected_version returns 409 version_conflict."}
+      - {id: ENT-05, work_package: WP-API, kind: entity, name: uploads, acceptance: "uploads(id, project_id, kind geometry|background, filename, path under /data/uploads, size_bytes, sha256, created_at); files over 100 MB (geometry) or 25 MB (image/PDF) are rejected with 413 upload_too_large before being persisted."}
+      - {id: ENT-06, work_package: WP-API, kind: entity, name: background_plans, acceptance: "background_plans(id, project_id, upload_id, page_count, page, calibration jsonb {p1,p2,distance_m}, transform jsonb {offset,rotation_deg,scale}, opacity) persists across restarts and is deleted with its project."}
+      - {id: ENT-07, work_package: WP-API, kind: entity, name: wind_climates, acceptance: "wind_climates(project_id PK, source era5|manual, period_years default 10, rose jsonb, cache_key, manual_direction_deg, manual_u10_ms, terrain_category default urban, z0_m default 1.0, updated_at); a new project has a row with rose null and no direction/speed."}
+      - {id: ENT-08, work_package: WP-API, kind: entity, name: external_cache, acceptance: "external_cache(kind geocode|elevation|era5, key, payload jsonb, fetched_at, expires_at) PK(kind,key); a second identical ERA5 request within TTL performs zero outbound HTTP calls (asserted with a fake transport)."}
+      - {id: ENT-09, work_package: WP-API, kind: entity, name: alternatives, acceptance: "alternatives(id, project_id, name, is_base, position, created_at) with a partial unique index guaranteeing exactly one is_base row per project, created together with the project."}
+      - {id: ENT-10, work_package: WP-API, kind: entity, name: facade_elements, acceptance: "facade_elements(id, alternative_id, building_id, edge_index, type, params jsonb, created_at) where params always validates against the per-type schema in openapi.yaml after clamping."}
+      - {id: ENT-11, work_package: WP-API, kind: entity, name: studies, acceptance: "studies table exactly as in contracts/job-contract.md §2.1 with status derived from its jobs (queued|running|completed|partial|failed|cancelled)."}
+      - {id: ENT-12, work_package: WP-API, kind: entity, name: jobs, acceptance: "jobs table, indexes and NOTIFY trigger exactly as in contracts/job-contract.md §2.2, including the partial index on (lane, priority desc, created_at) where status='queued'."}
+      - {id: ENT-13, work_package: WP-API, kind: entity, name: results, acceptance: "results table exactly as in contracts/job-contract.md §2.3 with unique(job_id) and comparability_key indexed."}
+      - {id: ENT-14, work_package: WP-API, kind: entity, name: comfort_results, acceptance: "comfort_results table exactly as in contracts/job-contract.md §2.4 keyed by (study_id, lawson_hash)."}
+      - {id: ENT-15, work_package: WP-API, kind: entity, name: exports, acceptance: "exports table exactly as in contracts/job-contract.md §2.5 linking an owner, a job and the produced PNG path."}
+      - {id: ENT-16, work_package: WP-API, kind: entity, name: reports, acceptance: "reports table exactly as in contracts/job-contract.md §2.5 with version incremented per project and file path of the PDF."}
+      - {id: ENT-17, work_package: WP-API, kind: entity, name: user_settings, acceptance: "user_settings(user_id PK, thresholds jsonb, lawson jsonb, turbulence_intensity_default, vegetation_cd, alternatives_limit) lazily created with the documented defaults on first GET /api/v1/settings."}
+      - {id: ENT-18, work_package: WP-API, kind: entity, name: templates, acceptance: "templates(id, owner_id, name, payload jsonb) where a JSON-schema check rejects any payload key named lat, lon, latitude, longitude, elevation or location with 422."}
+      - {id: ENT-19, work_package: WP-API, kind: entity, name: solver_nodes, acceptance: "solver_nodes table exactly as in contracts/job-contract.md §2.6; GET /api/v1/system/status reports solver offline when heartbeat_at is older than 30 s."}
+      - {id: ENT-20, work_package: WP-API, kind: entity, name: schema_meta, acceptance: "schema_meta(key PK, value) contains job_contract_version='1' after `alembic upgrade head`, which the api runs at startup before /health turns healthy."}
+      - {id: API-01, work_package: WP-API, kind: endpoint, name: GET /health, acceptance: "Unauthenticated 200 {status:'ok', db:'ok', version} or 503 {status:'degraded', db:'down'} when Postgres is unreachable; exempt from both rate-limit tiers."}
+      - {id: API-02, work_package: WP-API, kind: endpoint, name: GET /api/v1/auth/setup-status, acceptance: "Public; returns {needs_setup:true} when the users table is empty and {needs_setup:false} otherwise."}
+      - {id: API-03, work_package: WP-API, kind: endpoint, name: POST /api/v1/auth/setup, acceptance: "Public; with zero users creates an architect from {email,password>=10 chars} and returns 201 {access_token, token_type:'bearer', expires_in, user}; returns 409 setup_already_done once any user exists and 422 password_too_short for <10 chars."}
+      - {id: API-04, work_package: WP-API, kind: endpoint, name: POST /api/v1/auth/login, acceptance: "Public; valid credentials return 200 with a JWT whose sub is the user id and role claim; wrong email or password return the same 401 invalid_credentials body; 11th attempt within a minute from one address returns 429 with Retry-After."}
+      - {id: API-05, work_package: WP-API, kind: endpoint, name: GET /api/v1/auth/me, acceptance: "Returns {id, email, role} of the bearer; 401 without or with an expired token."}
+      - {id: API-06, work_package: WP-API, kind: endpoint, name: GET /api/v1/users, acceptance: "Architect only; lists local users {id,email,role,created_at}; reviewer gets 403 forbidden."}
+      - {id: API-07, work_package: WP-API, kind: endpoint, name: POST /api/v1/users, acceptance: "Architect creates {email,password,role}; 201 with the user; 409 email_taken on duplicate email."}
+      - {id: API-08, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/users/{user_id}", acceptance: "Architect deletes another user (204) and their shares; deleting oneself returns 409 cannot_delete_self."}
+      - {id: API-09, work_package: WP-API, kind: endpoint, name: GET /api/v1/system/status, acceptance: "Returns api/db health plus solver {online, device cpu|gpu, gpu_name, vram_total_bytes, ram_budget_bytes, cpu_cores, mlups_2d, mlups_3d, heartbeat_at} from the freshest solver_nodes row."}
+      - {id: API-10, work_package: WP-API, kind: endpoint, name: GET /api/v1/projects, acceptance: "Lists projects owned by or shared with the caller (newest first) with {id,name,has_location,updated_at,role_on_project}; another user's unshared project never appears."}
+      - {id: API-11, work_package: WP-API, kind: endpoint, name: POST /api/v1/projects, acceptance: "Architect creates {name}; 201 with lat/lon/elevation/density null, a base alternative, empty geometry v1 and a wind_climates row with z0 1.0 and no rose."}
+      - {id: API-12, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}", acceptance: "Returns the full Project schema; a foreign id and a random id return byte-identical 404 project_not_found bodies (test compares bytes)."}
+      - {id: API-13, work_package: WP-API, kind: endpoint, name: "PATCH /api/v1/projects/{project_id}", acceptance: "Owner renames or sets analysis_height_m (0.5-3.0, else 422); reviewer with share gets 403 forbidden."}
+      - {id: API-14, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/projects/{project_id}", acceptance: "Owner deletes project rows (cascade), cancels its active jobs and removes /data/results/{project_id} and /data/uploads/{project_id}; returns 204."}
+      - {id: API-15, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/duplicate", acceptance: "Creates 'Copia de <name>' with location, wind, geometry, alternatives and facade elements copied (no jobs/results); returns 201 with the new project."}
+      - {id: API-16, work_package: WP-API, kind: endpoint, name: "PUT /api/v1/projects/{project_id}/location", acceptance: "Accepts {lat,lon (5 decimals kept), elevation_m?}; without elevation_m fetches Open-Meteo elevation, computes ISA density and returns both; lat outside ±90 or lon outside ±180 → 422 coordinates_out_of_range; elevation upstream failure → 503 elevation_unavailable with hint to enter it manually."}
+      - {id: API-17, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/shares", acceptance: "Owner lists reviewers with access {user_id,email,created_at}."}
+      - {id: API-18, work_package: WP-API, kind: endpoint, name: "PUT /api/v1/projects/{project_id}/shares/{user_id}", acceptance: "Owner grants read access idempotently (204); the reviewer then sees the project in GET /projects."}
+      - {id: API-19, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/projects/{project_id}/shares/{user_id}", acceptance: "Owner revokes access (204); the reviewer then receives 404 project_not_found on that project."}
+      - {id: API-20, work_package: WP-API, kind: endpoint, name: GET /api/v1/geo/search, acceptance: "Proxies Open-Meteo geocoding for q (2-100 chars, language es) returning up to 10 {name, admin1, country, lat, lon, elevation_m?}; cached 30 d; upstream down and no cache → 503 geocoding_unavailable."}
+      - {id: API-21, work_package: WP-API, kind: endpoint, name: GET /api/v1/geo/elevation, acceptance: "Returns {elevation_m, air_density_kg_m3, source:'open_meteo'} for lat/lon rounded to 4 decimals before the outbound call; cached 365 d."}
+      - {id: API-22, work_package: WP-API, kind: endpoint, name: "GET /api/v1/tiles/{z}/{x}/{y}.png", acceptance: "Returns image/png from the disk cache or TILE_URL_TEMPLATE with User-Agent TILE_USER_AGENT; z outside 0-19 → 422; cache evicts least-recently-used tiles beyond TILE_CACHE_MAX_MB; offline cache miss → 503 tile_unavailable."}
+      - {id: API-23, work_package: WP-API, kind: endpoint, name: GET /api/v1/terrain-categories, acceptance: "Returns the five BR-08 categories {key, label_key, z0_m} with urban flagged default."}
+      - {id: API-24, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/wind", acceptance: "Returns WindClimate {source, rose|null, period_years, manual_direction_deg, manual_u10_ms, terrain_category, z0_m, ustar_ms?, air_density_kg_m3, fetched_at, from_cache}."}
+      - {id: API-25, work_package: WP-API, kind: endpoint, name: "PATCH /api/v1/projects/{project_id}/wind", acceptance: "Updates source, manual direction (0-360)/U10 (0.5-60 m/s), terrain_category and z0_m (0.0001-3.0); switching to era5 without a rose returns 409 rose_missing."}
+      - {id: API-26, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/wind/era5", acceptance: "With a located project fetches ≥period_years of hourly ERA5 10 m wind (cache key rounded 0.1°), returns 16 sectors with frequency, mean, p50, p90, max, weibull_k, weibull_c and calm_fraction summing with frequencies to 1±0.001; project without location → 409 location_missing; no network and no cache → 503 era5_unavailable with manual-entry hint."}
+      - {id: API-27, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/geometry", acceptance: "Returns {version, buildings[], issues[]} for the base case."}
+      - {id: API-28, work_package: WP-API, kind: endpoint, name: "PUT /api/v1/projects/{project_id}/geometry", acceptance: "Replaces the building set given expected_version; returns 200 {version+1, buildings, issues}; stale version → 409 version_conflict; non-base alternatives exist and confirm_base_change is not true → 409 base_locked; facade elements whose edge vanished are returned in orphaned_elements."}
+      - {id: API-29, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/geometry/validate", acceptance: "Returns issues[] {building_id, code not_closed|self_intersection|height_out_of_range|footprint_too_small|missing_height|overlap, message_key, location} for the submitted or stored buildings without saving (BR-14)."}
+      - {id: API-30, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/geometry/imports", acceptance: "Multipart DXF/STL/OBJ (R1) or IFC (R2) with options {unit, mode append|replace, center}; returns 201 ImportReport {buildings_added, missing_height[], ignored[{entity,reason}], detected_unit, warnings}; corrupt or unsupported file → 422 import_failed with cause and fix hint and the project unchanged."}
+      - {id: API-31, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/backgrounds", acceptance: "Uploads PNG/JPG/PDF ≤25 MB, returns 201 {id, page_count}; >25 MB → 413 upload_too_large with the limit in details."}
+      - {id: API-32, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/backgrounds", acceptance: "Lists background plans with calibration, transform, page and opacity."}
+      - {id: API-33, work_package: WP-API, kind: endpoint, name: "GET /api/v1/backgrounds/{background_id}/pages/{page}.png", acceptance: "Returns the selected page rasterised to PNG (pypdfium2, ≤4096 px long side); page out of range → 404 page_not_found."}
+      - {id: API-34, work_package: WP-API, kind: endpoint, name: "PATCH /api/v1/backgrounds/{background_id}", acceptance: "Stores calibration {p1,p2,distance_m>0} and returns the derived metres-per-pixel scale; page and opacity editable."}
+      - {id: API-35, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/backgrounds/{background_id}", acceptance: "Deletes the plan row and its upload file; 204."}
+      - {id: API-36, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/alternatives", acceptance: "Lists base first then alternatives by position with {id,name,is_base,element_count,latest_results_summary}."}
+      - {id: API-37, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/alternatives", acceptance: "Creates an alternative copying facade elements of from_alternative_id (default base); the 9th non-base alternative with the default limit returns 409 alternatives_limit with the limit in details."}
+      - {id: API-38, work_package: WP-API, kind: endpoint, name: "PATCH /api/v1/alternatives/{alternative_id}", acceptance: "Renames (1-80 chars) and reorders; the new name is returned by comparison and report payloads."}
+      - {id: API-39, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/alternatives/{alternative_id}", acceptance: "Deletes a non-base alternative with its elements and results (204); the base returns 409 base_undeletable."}
+      - {id: API-40, work_package: WP-API, kind: endpoint, name: GET /api/v1/facade-strategies, acceptance: "Returns the five strategies with every parameter's {key, unit, min, max, default, help_key}, the single source of defaults and ranges used by the inspector."}
+      - {id: API-41, work_package: WP-API, kind: endpoint, name: "GET /api/v1/alternatives/{alternative_id}/facade-elements", acceptance: "Lists elements with {id, building_id, edge_index, type, params, orphaned}."}
+      - {id: API-42, work_package: WP-API, kind: endpoint, name: "POST /api/v1/alternatives/{alternative_id}/facade-elements", acceptance: "Creates an element on a building edge; missing params take defaults; out-of-range values are clamped and listed in adjustments[{field,requested,applied}] (201); unknown building/edge → 422 edge_not_found; project with no buildings → 409 no_buildings."}
+      - {id: API-43, work_package: WP-API, kind: endpoint, name: "PATCH /api/v1/facade-elements/{element_id}", acceptance: "Updates params with the same clamping and adjustments report; elements of the base when alternatives exist require confirm_base_change."}
+      - {id: API-44, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/facade-elements/{element_id}", acceptance: "Owner deletes the element (204) and the next GET /alternatives/{alternative_id}/scene no longer contains primitives with that element_id; a reviewer gets 403 forbidden."}
+      - {id: API-45, work_package: WP-API, kind: endpoint, name: "GET /api/v1/alternatives/{alternative_id}/scene", acceptance: "Returns the compiled canonical scene that validates against contracts/scene.schema.json (asserted in tests) with solids, porous zones and warnings for the alternative."}
+      - {id: API-46, work_package: WP-API, kind: endpoint, name: POST /api/v1/simulations/estimate, acceptance: "Returns {device, nodes, memory_bytes, budget_bytes, fits, proposed_dx_m|null, rejected_reason|null, eta_seconds, grid} computed with the ADR-10 constants and the latest solver_nodes capabilities."}
+      - {id: API-47, work_package: WP-API, kind: endpoint, name: POST /api/v1/simulations, acceptance: "Creates a study plus one queued job per direction (1-16) or one section job, with full payloads per job-contract.md §3, in one transaction followed by NOTIFY; returns 202 with the study; geometry issues → 422 geometry_invalid; no location → 409 location_missing; too large without auto_coarsen → 422 mesh_too_large with proposed_dx_m; reviewer → 403."}
+      - {id: API-48, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/simulations", acceptance: "Lists studies newest first with {id, alternative_name, kind, directions, status, progress, device, created_at}."}
+      - {id: API-49, work_package: WP-API, kind: endpoint, name: "GET /api/v1/simulations/{study_id}", acceptance: "Returns the study with jobs[{id, direction_deg, status, progress 0..1, phase, eta_seconds, device_used, error{code,message,hint}, result_id}] and coverage of the rose; values change between polls at least every 2 s while running."}
+      - {id: API-50, work_package: WP-API, kind: endpoint, name: "POST /api/v1/simulations/{study_id}/cancel", acceptance: "Sets queued jobs cancelled immediately and running jobs cancel_requested; 202; the solver marks them cancelled within 10 s."}
+      - {id: API-51, work_package: WP-API, kind: endpoint, name: "GET /api/v1/jobs/{job_id}", acceptance: "Returns one job (any lane) with progress, phase, error and resumable flag."}
+      - {id: API-52, work_package: WP-API, kind: endpoint, name: "POST /api/v1/jobs/{job_id}/cancel", acceptance: "Cancels one job as in API-50; finished jobs return 409 job_not_cancellable."}
+      - {id: API-53, work_package: WP-API, kind: endpoint, name: "POST /api/v1/jobs/{job_id}/retry", acceptance: "Re-queues a failed resumable job (status queued, attempts kept, error cleared); non-resumable or running jobs → 409 job_not_retryable."}
+      - {id: API-54, work_package: WP-API, kind: endpoint, name: "GET /api/v1/results/{result_id}", acceptance: "Returns Result {kind, direction_deg, device, dx_m, output_grid, stats{k_mean,k_max,k_p95}, convergence{converged, flow_throughs, rel_change}, fields[], images[], comparability_key, warnings} read from the results row."}
+      - {id: API-55, work_package: WP-API, kind: endpoint, name: "GET /api/v1/results/{result_id}/fields/{field_name}", acceptance: "Streams the raw little-endian float32 (or uint8 mask) file with headers X-Field-Shape and X-Field-Dtype; unknown field → 404 field_not_found."}
+      - {id: API-56, work_package: WP-API, kind: endpoint, name: "GET /api/v1/results/{result_id}/images/{image_name}", acceptance: "Streams a preview PNG (k, zones, speed, lawson, slice_*) produced by the solver."}
+      - {id: API-57, work_package: WP-API, kind: endpoint, name: "GET /api/v1/results/{result_id}/zones", acceptance: "With k_accel, k_stagnation (defaults from user settings) returns area_m2 and percent of fluid area for acceleration and stagnation in ≤2 s for 400×300 fields (timed test)."}
+      - {id: API-58, work_package: WP-API, kind: endpoint, name: "GET /api/v1/results/{result_id}/viewer3d", acceptance: "For volume3d results returns {buildings scene, slices[{name, plane, extents, field, shape}], streamlines[[x,y,z]...]} read from the result's viewer3d.json; other kinds → 404 viewer_not_available."}
+      - {id: API-59, work_package: WP-API, kind: endpoint, name: "GET /api/v1/results/{result_id}/download", acceptance: "format=npz streams fields.npz; format=csv streams x,y,K,ux,uy,speed rows for fluid cells; both with Content-Disposition attachment."}
+      - {id: API-60, work_package: WP-API, kind: endpoint, name: "GET /api/v1/simulations/{study_id}/comfort", acceptance: "Returns the comfort result for the caller's current Lawson table {status, coverage, partial (coverage<0.95), class_areas[{class, area_m2, percent}], safety_areas, image, field} or 409 rose_missing when the project uses manual wind."}
+      - {id: API-61, work_package: WP-API, kind: endpoint, name: "POST /api/v1/simulations/{study_id}/comfort/recompute", acceptance: "Enqueues a light-lane aggregate job with the caller's current Lawson table (202) unless a comfort result with the same lawson_hash exists (200)."}
+      - {id: API-62, work_package: WP-API, kind: endpoint, name: GET /api/v1/comparisons/check, acceptance: "For result ids a and b returns {comparable:true} or 422 results_incomparable with differences[{field, a, b}] over kind, direction, z0, U_ref, dx, grid, analysis height (BR-11)."}
+      - {id: API-63, work_package: WP-API, kind: endpoint, name: GET /api/v1/comparisons/areas, acceptance: "For comparable a (base) and b returns per alternative area_m2/percent for acceleration, stagnation and, for b, reduction (ΔK below dk_reduction) computed with numpy on the K fields."}
+      - {id: API-64, work_package: WP-API, kind: endpoint, name: GET /api/v1/comparisons/comfort, acceptance: "For two studies of the same project and kind returns Lawson class areas side by side with each coverage and partial flag."}
+      - {id: API-65, work_package: WP-API, kind: endpoint, name: POST /api/v1/exports, acceptance: "Accepts {result_id, layer k|zones|speed|delta_k|lawson, compare_result_id?, thresholds?, dpi ≥300 default 300} and returns 202 {export_id} after enqueuing a light-lane render job; results missing → 409 results_missing."}
+      - {id: API-66, work_package: WP-API, kind: endpoint, name: "GET /api/v1/exports/{export_id}", acceptance: "Returns {status, progress, error, file_ready}."}
+      - {id: API-67, work_package: WP-API, kind: endpoint, name: "GET /api/v1/exports/{export_id}/file", acceptance: "Streams the PNG with Content-Disposition; not ready → 409 export_not_ready."}
+      - {id: API-68, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/reports", acceptance: "Accepts {study_ids[], baseline_study_id?, include_comfort} and enqueues a report job whose payload snapshots project, location, rose, parameters, area tables and the FR-48 disclaimer; 202 {report_id}; no completed results → 409 results_missing."}
+      - {id: API-69, work_package: WP-API, kind: endpoint, name: "GET /api/v1/projects/{project_id}/reports", acceptance: "Lists reports {id, version, status, created_at}."}
+      - {id: API-70, work_package: WP-API, kind: endpoint, name: "GET /api/v1/reports/{report_id}", acceptance: "Returns report status, progress and error."}
+      - {id: API-71, work_package: WP-API, kind: endpoint, name: "GET /api/v1/reports/{report_id}/file", acceptance: "Streams application/pdf with filename rafaga-<project-slug>-v<version>.pdf; not ready → 409 report_not_ready."}
+      - {id: API-72, work_package: WP-API, kind: endpoint, name: GET /api/v1/settings, acceptance: "Returns the caller's settings with defaults k_accel 1.2, k_stagnation 0.3, dk_reduction -0.1, the ADR-15 Lawson table, turbulence_intensity_default 0.25, vegetation_cd 0.2, alternatives_limit 8."}
+      - {id: API-73, work_package: WP-API, kind: endpoint, name: PATCH /api/v1/settings, acceptance: "Validates ranges (k_accel > k_stagnation > 0, Lawson thresholds strictly increasing, alternatives_limit 1-20) and returns the updated settings; invalid → 422."}
+      - {id: API-74, work_package: WP-API, kind: endpoint, name: GET /api/v1/templates, acceptance: "Lists the caller's templates {id, name, created_at}."}
+      - {id: API-75, work_package: WP-API, kind: endpoint, name: POST /api/v1/templates, acceptance: "Saves {name, payload{terrain_category, z0_m, thresholds, lawson, facade_defaults}}; location keys rejected with 422 template_contains_location."}
+      - {id: API-76, work_package: WP-API, kind: endpoint, name: "DELETE /api/v1/templates/{template_id}", acceptance: "Deletes an owned template; foreign id → 404 template_not_found identical to missing."}
+      - {id: API-77, work_package: WP-API, kind: endpoint, name: "POST /api/v1/projects/{project_id}/apply-template", acceptance: "Applies {template_id} to wind roughness and the caller's thresholds without touching location; returns the updated WindClimate."}
+      - {id: JOB-A01, work_package: WP-API, kind: job, name: Admin seed (insert-if-absent), acceptance: "At startup, when ADMIN_EMAIL and ADMIN_PASSWORD are both non-empty and no user with that email exists, inserts an architect; an existing user's password is never overwritten (test)."}
+      - {id: JOB-A02, work_package: WP-API, kind: job, name: Retention purge, acceptance: "Daily lifespan task deletes failed/cancelled jobs (and their output dirs) finished more than JOB_RETENTION_DAYS=90 days ago; completed jobs referenced by results are kept."}
+      - {id: JOB-A03, work_package: WP-API, kind: job, name: Aggregate template on study creation, acceptance: "POST /simulations stores studies.aggregate_template (rose snapshot, site roughness, the caller's Lawson table, turbulence_intensity_default, lawson_hash, output grid) when the wind source is era5 and NULL when manual, matching job-contract.md §3.4 minus result_refs."}
+      - {id: IMG-API, work_package: WP-API, kind: artifact, name: services/api/Dockerfile + .dockerignore, acceptance: "Multi-stage python:3.12-slim image, USER 10001:10001, /data owned by 10001, EXPOSE 8000, HEALTHCHECK on /health, runs `alembic upgrade head` then uvicorn; `docker build services/api` succeeds."}
+      # ---------------- WP-SOLVER (fastapi-senior) — services/solver ----------------
+      - {id: SOL-01, work_package: WP-SOLVER, kind: endpoint, name: GET /health (solver), acceptance: "Unauthenticated 200 {status, device cpu|gpu, gpu_name|null, db, lanes{heavy{busy,job_id}, light{busy}}}; 503 when the DB is unreachable; the only HTTP route of the service."}
+      - {id: SOL-02, work_package: WP-SOLVER, kind: job, name: Queue supervisor and claim, acceptance: "Claims jobs per lane with the exact SKIP LOCKED statement of job-contract.md §4, wakes on NOTIFY rafaga_jobs or every 2 s, never runs two heavy jobs at once, runs up to LIGHT_LANE_CONCURRENCY light jobs; a test with two supervisors proves no job is claimed twice."}
+      - {id: SOL-03, work_package: WP-SOLVER, kind: job, name: Device selection, probe and heartbeat, acceptance: "`python -m app.services.device.device_probe` exits 0 only after a CuPy RawKernel ran on the GPU; at start the solver benchmarks MLUPS (≤5 s) and upserts solver_nodes every 5 s with device, gpu_name, vram, ram budget, cores, mlups; RAFAGA_DEVICE=cpu forces NumPy."}
+      - {id: SOL-04, work_package: WP-SOLVER, kind: job, name: Orphan recovery, acceptance: "On start, jobs in running whose heartbeat_at is older than 60 s become failed with error_code worker_restarted and resumable=true; their partial output dirs are removed."}
+      - {id: SOL-05, work_package: WP-SOLVER, kind: job, name: Cancellation, acceptance: "A running job with cancel_requested=true reaches status cancelled within 10 s (cooperative check ≤1 s, hard kill of the child at 8 s), GPU memory is released and the next job starts."}
+      - {id: SOL-06, work_package: WP-SOLVER, kind: job, name: Scene voxelizer, acceptance: "Rasterizes scene.schema.json primitives onto the payload grid (plan slice at analysis height, vertical section, 3D) with 4× supersampling; solids with coverage ≥0.5 → wall, thinner → porous β=1-coverage; screens/vegetation → porous ids; golden-file tests on the contract examples."}
+      - {id: SOL-07, work_package: WP-SOLVER, kind: job, name: plan2d simulation (D2Q9), acceptance: "Runs a plan2d payload on GPU or CPU and writes fields K, ux, uy, speed, mask, ti plus manifest.json per job-contract.md §5; standard 400×300 case completes in ≤2 min on RTX 4060 and ≤10 min on 16-core CPU (benchmark SOL-18)."}
+      - {id: SOL-08, work_package: WP-SOLVER, kind: job, name: section2d simulation, acceptance: "Runs a vertical (s,z) D2Q9 case with log-law inlet, ground wall function and slip top; writes K, us, uz, speed, mask on the section output grid."}
+      - {id: SOL-09, work_package: WP-SOLVER, kind: job, name: volume3d simulation (D3Q19 LES), acceptance: "Runs D3Q19 regularized BGK + Smagorinsky with ADR-12 BCs and porous forcing; writes the analysis-height slice on the project output grid (K, ux, uy, uz, speed, ti, mask), vertical slices and viewer3d.json streamlines; 25 M nodes uses ≤7.2 GB VRAM and sustains ≥100 MLUPS (target 400)."}
+      - {id: SOL-10, work_package: WP-SOLVER, kind: job, name: Convergence and averaging monitor, acceptance: "Implements ADR-11 exactly; manifest.convergence reports {converged, flow_throughs_spinup, flow_throughs_averaged, rel_change_last, checks}; cap reached → converged=false and warning convergence_cap_reached."}
+      - {id: SOL-11, work_package: WP-SOLVER, kind: job, name: Post-processing and previews, acceptance: "Computes K=|U|/U_ref(z_a) on the north-up output grid (bilinear from the rotated sim grid), stats {k_mean,k_max,k_p95}, comparability_key, and 150 dpi previews k.png (cmocean speed), speed.png, zones.png (hatched) with numeric legends."}
+      - {id: SOL-12, work_package: WP-SOLVER, kind: job, name: aggregate (Lawson comfort), acceptance: "For a study computes per-cell exceedance with ADR-15 (Weibull, GEM, roughness transfer, renormalised coverage) and writes lawson_class.u8, exceedance.f32, lawson.png and a comfort_results row with class areas, coverage and partial."}
+      - {id: SOL-13, work_package: WP-SOLVER, kind: job, name: render (export PNG), acceptance: "Renders layer k|zones|speed|delta_k|lawson at the requested dpi (≥300, verified in PNG pHYs metadata) with legend and units, scale bar, north arrow, reference wind (direction and U10), and the disclaimer line."}
+      - {id: SOL-14, work_package: WP-SOLVER, kind: job, name: report (PDF), acceptance: "Builds an A4 PDF with WeasyPrint from the payload snapshot (project, location, rose chart, parameters, maps, area table, Lawson, FR-48 disclaimer on every page footer) in ≤30 s with 6 maps; Literata/Hanken Grotesk embedded."}
+      - {id: SOL-15, work_package: WP-SOLVER, kind: job, name: Validation — square cylinder, acceptance: "pytest -m slow test runs 2D square cylinder (Re 150, blockage 5 %, D=20 cells) and asserts Strouhal 0.13-0.15 and mean recirculation length within the documented literature band."}
+      - {id: SOL-16, work_package: WP-SOLVER, kind: job, name: Validation — AIJ case A, acceptance: "pytest -m slow (GPU if available) runs the 1:1:2 building and asserts reverse flow behind the building at z=0.125H with reattachment between 1.0H and 2.5H downstream and roof separation present; plots stored as test artefacts."}
+      - {id: SOL-17, work_package: WP-SOLVER, kind: job, name: CPU/GPU equivalence, acceptance: "Same seeded payload on NumPy and CuPy gives |mean K_gpu - mean K_cpu|/mean K_cpu ≤ 0.02 (skipped with reason when no GPU)."}
+      - {id: SOL-18, work_package: WP-SOLVER, kind: job, name: Benchmarks, acceptance: "`python -m app.services.bench.bench_runner` runs the versioned 400×300 2D case and a 3D case 3 times and prints median wall time, MLUPS and peak memory as JSON (NFR-01/02/03 evidence)."}
+      - {id: SOL-19, work_package: WP-SOLVER, kind: job, name: Pre-run memory guard, acceptance: "Before allocating, re-checks payload memory against the live device budget and fails fast with error_code mesh_too_large and a hint containing the proposed dx when it does not fit."}
+      - {id: SOL-20, work_package: WP-SOLVER, kind: job, name: Study completion → aggregate enqueue, acceptance: "When the last heavy job of a study reaches a terminal state, in the same transaction (study row locked FOR UPDATE) inserts exactly one light aggregate job from studies.aggregate_template + result_refs if the template is not NULL, ≥1 result exists and no aggregate with that lawson_hash is queued, running or completed (concurrency test with two finishing jobs)."}
+      - {id: IMG-SOLVER, work_package: WP-SOLVER, kind: artifact, name: services/solver/Dockerfile + .dockerignore, acceptance: "Multi-stage python:3.12-slim with cupy-cuda12x[ctk], numpy, matplotlib, cmocean, weasyprint deps; USER 10001:10001; EXPOSE 8000; HEALTHCHECK on /health; starts CPU-only without a GPU and uses the GPU under compose.gpu.yaml."}
+      # ---------------- WP-WEB (react-senior + frontend-design) — services/web ----------------
+      - {id: SCR-01, work_package: WP-WEB, kind: screen, name: Crear cuenta local, acceptance: "Shown on every route while GET /auth/setup-status says needs_setup; submits POST /auth/setup, shows the 10-character minimum inline on 422 and lands on Proyectos with 'Crea tu primer proyecto'."}
+      - {id: SCR-02, work_package: WP-WEB, kind: screen, name: Iniciar sesión, acceptance: "Shown when setup is done and no valid token; POST /auth/login, 401 shows 'Correo o contraseña incorrectos', 429 shows the wait time from Retry-After."}
+      - {id: SCR-03, work_package: WP-WEB, kind: screen, name: Proyectos, acceptance: "Lists GET /projects with name, location state and last update; create, rename, duplicate and delete (confirmation dialog naming the project); empty state 'Crea tu primer proyecto'."}
+      - {id: SCR-04, work_package: WP-WEB, kind: screen, name: Espacio de trabajo (shell), acceptance: "Left step rail 1-6 Proyecto→Comparar with locked steps (Viento/Simular locked until location set), central canvas, right inspector, compute badge 'GPU: <modelo>' or 'CPU' and service health from GET /system/status, theme toggle, permanent disclaimer on result views."}
+      - {id: SCR-05, work_package: WP-WEB, kind: screen, name: Paso 1 — Proyecto (ubicación), acceptance: "MapLibre map through /tiles with OSM attribution, no marker on a new project; click, place search (GET /geo/search) or typed coordinates call PUT /location and show lat/lon (5 decimals), elevation and ISA density within 5 s; elevation failure opens manual elevation input; offline tiles show a neutral grid."}
+      - {id: SCR-06, work_package: WP-WEB, kind: screen, name: Paso 2 — Geometría (editor), acceptance: "SVG metric editor draws rectangles/polygons (default 12 m height), move/scale/delete, grid snap, height slider + numeric field, ≥50-level undo/redo, self-intersection warning, issues list from /geometry/validate, saves with PUT /geometry; empty state 'Dibuja o carga tu primer edificio'; ≤100 ms p95 interactions with 200 blocks."}
+      - {id: SCR-07, work_package: WP-WEB, kind: screen, name: Importar geometría, acceptance: "Dialog uploads DXF/STL/OBJ/IFC to /geometry/imports, confirms detected unit, then shows the import report (added, missing height with inline height inputs, ignored with reasons) or the 422 cause and fix."}
+      - {id: SCR-08, work_package: WP-WEB, kind: screen, name: Calcar plano, acceptance: "Uploads image/PDF (page picker for multi-page), two-point calibration with real distance, opacity control, and a ruler whose measurement differs ≤1 % from the calibrated distance; >25 MB shows the limit and how to reduce it."}
+      - {id: SCR-09, work_package: WP-WEB, kind: screen, name: Vista 3D de geometría, acceptance: "react-three-fiber orbit/zoom view of GET /alternatives/{id}/scene solids and porous zones (translucent), updating when a height changes."}
+      - {id: SCR-10, work_package: WP-WEB, kind: screen, name: Paso 3 — Viento, acceptance: "Fetches ERA5 rose (POST /wind/era5) and renders a 16-sector SVG rose with frequency and p50/p90/max table; terrain category select fills z0 (editable); manual direction/U10 mode; density with formula; offline without cache offers manual entry with explanation."}
+      - {id: SCR-11, work_package: WP-WEB, kind: screen, name: Paso 4 — Alternativas y fachadas, acceptance: "Lists/creates/renames/deletes alternatives (limit message on 409), selects a building edge on the canvas and applies one of five strategies with defaults/ranges/help from /facade-strategies; clamped values show the adjustment message; base marked immutable."}
+      - {id: SCR-12, work_package: WP-WEB, kind: screen, name: Paso 5 — Simular, acceptance: "Chooses kind (planta 2D, corte vertical, 3D), directions on a clickable rose (1-16, coverage % shown), cell size, device (auto/CPU/GPU); shows POST /simulations/estimate (nodes, memory vs budget, ETA, proposed dx) before launch; mesh_too_large offers the proposed dx."}
+      - {id: SCR-13, work_package: WP-WEB, kind: screen, name: Trabajos y progreso, acceptance: "Polls GET /simulations/{id} every 1 s while active and shows per-direction progress bar, phase, ETA, device and cancel; survives page reload; failed jobs show cause and solution and a retry for resumable ones."}
+      - {id: SCR-14, work_package: WP-WEB, kind: screen, name: Resultados en planta, acceptance: "Draws K from /fields/K with the cmocean speed LUT and numeric legend (unidades), animated WebGL2 particles from ux/uy (static streamlines under prefers-reduced-motion), Zonas toggle with hatch patterns + labels re-thresholded client-side, area table from /zones, disclaimer visible."}
+      - {id: SCR-15, work_package: WP-WEB, kind: screen, name: Confort Lawson, acceptance: "Shows Lawson classes from /comfort with coverage %, 'Parcial' badge under 95 %, class areas, plain-language note in Literata when a class is selected, and recompute after settings change."}
+      - {id: SCR-16, work_package: WP-WEB, kind: screen, name: Visor 3D de resultados, acceptance: "Renders buildings, the analysis-height slice and vertical slices textured from viewer3d fields plus streamlines, orbit/zoom, with the K legend."}
+      - {id: SCR-17, work_package: WP-WEB, kind: screen, name: Corte vertical, acceptance: "Draws a section line on the plan (upwind→downwind), launches section2d and displays the (s,z) speed field with legend and height axis."}
+      - {id: SCR-18, work_package: WP-WEB, kind: screen, name: Paso 6 — Comparar (pantalla completa), acceptance: "Full-screen before/after swipe slider movable by drag and by arrow keys (2 %, Shift 10 %), ΔK toggle with cmocean balance and reduction hatch, area table per zone and Lawson class from /comparisons/areas and /comparisons/comfort; 422 shows which parameters differ."}
+      - {id: SCR-19, work_package: WP-WEB, kind: screen, name: Exportar PNG, acceptance: "Dialog picks layer and dpi (≥300), POSTs /exports, polls status and downloads the file; disabled with explanation when the view has no results."}
+      - {id: SCR-20, work_package: WP-WEB, kind: screen, name: Informes PDF, acceptance: "Selects studies and baseline, POSTs /reports, lists versions with status and downloads the PDF."}
+      - {id: SCR-21, work_package: WP-WEB, kind: screen, name: Ajustes, acceptance: "Edits K thresholds, ΔK threshold, Lawson table, turbulence intensity, vegetation Cd and alternatives limit via PATCH /settings with inline range errors; zones update without re-simulating."}
+      - {id: SCR-22, work_package: WP-WEB, kind: screen, name: Usuarios y acceso, acceptance: "Architect creates reviewer/architect users and shares or revokes projects; reviewers see read-only UI with launch/edit controls hidden and a 403 explained if hit."}
+      - {id: SCR-23, work_package: WP-WEB, kind: screen, name: Plantillas, acceptance: "Saves the current roughness/thresholds/facade defaults as a template (never location) and applies one to a project."}
+      - {id: WEB-01, work_package: WP-WEB, kind: artifact, name: Runtime config bootstrap, acceptance: "Before rendering, fetches /config.json (no-store) and builds the API base as location.protocol//location.hostname:apiPort (or apiBaseUrl when set); a missing or invalid config shows 'No se encuentra el servicio. Ejecuta start de nuevo.'."}
+      - {id: WEB-02, work_package: WP-WEB, kind: artifact, name: Design tokens and themes, acceptance: "src/styles tokens implement contracts/design-system.md (light/dark, type scale, radii, focus ring); axe-core reports 0 serious/critical violations on every screen in both themes."}
+      - {id: WEB-03, work_package: WP-WEB, kind: artifact, name: Particle flow engine, acceptance: "WebGL2 ping-pong particle advection over a velocity texture (≥16k particles at 60 fps on integrated GPUs, fades trails), pausable, falls back to static streamlines without WebGL2 or with reduced motion."}
+      - {id: WEB-04, work_package: WP-WEB, kind: artifact, name: Colormap LUTs, acceptance: "256-entry cmocean speed and balance LUTs generated from cmocean RGB tables match the solver previews (unit test samples 5 points ±1/255)."}
+      - {id: WEB-05, work_package: WP-WEB, kind: artifact, name: i18n es-CO resources, acceptance: "All UI strings live in src/locales/es-CO/*.json via i18next; numbers formatted with Intl es-CO; a test fails on hard-coded user-visible strings in components."}
+      - {id: IMG-WEB, work_package: WP-WEB, kind: artifact, name: services/web/Dockerfile + entrypoint + .dockerignore, acceptance: "node:24-slim build with pnpm --frozen-lockfile, runtime runs as node, docker-entrypoint.sh writes dist/config.json from RAFAGA_API_PORT then execs `serve -s dist -l tcp://0.0.0.0:3000`; serve.json sets Cache-Control no-store for config.json; HEALTHCHECK fetches /; .nvmrc=24."}
+      # ---------------- WP-BACKLOG — post-handoff backlog (owner + skill per row; ADR-27..29) ----------------
+      # Rows keep their owner component's skill binding. Each row is closed only by the test or
+      # artefact named in its acceptance. User actions (real Windows run) are listed, not faked.
+      - {id: BL-01, work_package: WP-BACKLOG, owner: solver, skill: fastapi-senior, kind: job, name: "3D LES with resolved gusts (ADR-27)", acceptance: "A short seeded GPU volume3d run on an empty domain (pytest -m gpu) measures, at the analysis height in the far field, I_u = sigma_u/U_mean between 0.15 and 0.30 and mean K between 0.9 and 1.1; the volume3d collision uses the accepted hybrid closure (ADR-27 amendment, user decision): 6 RANS layers at 0.8 kappa min(z+z0,d_wall) then C_s dx, plus PI far-field nudging (unit test on hybrid_length_field); a Lawson aggregate over a volume3d result uses the resolved ti field (GEM > U where resolved ti > (1.85-1)/3 ~ 0.283 and G = 1 below it (Lawson G = max(1,(1+3I)/1.85)), asserted) and the aggregate manifest field gust_factor states the G=1 floor applies to cells without valid ti statistics (test, plus a Lawson aggregate over a real volume3d result); services/solver/README.md marks the 'Equilibrium ABL' deviation as superseded for volume3d."}
+      - {id: BL-02, work_package: WP-BACKLOG, owner: api + solver, skill: fastapi-senior, kind: job, name: "3D domain top ~5H within 8 GB VRAM (ADR-27, ADR-10)", acceptance: "api grid_service resolves volume3d with nz = ceil(5 H / dx) (plan2d/section2d keep 6H) and still enforces blockage < 3 % by raising the top when needed (unit tests for both cases); the estimate for a reference 25 M-node volume3d returns memory_bytes <= 7.2 GB with fits=true on an 8188 MiB GPU; the solver SOL-19 guard accepts that payload and a short GPU run reports peak VRAM <= 7.2 GB."}
+      - {id: BL-03, work_package: WP-BACKLOG, owner: solver, skill: fastapi-senior, kind: job, name: "Celosía perpendicular to wind shelters downstream (ADR-13)", acceptance: "A seeded test (plan2d fast; volume3d marked gpu) runs a building with and without a screen (porosity 0.40) on the windward/leeward edge perpendicular to the wind and asserts mean K in the sheltered zone (downstream of the screen, within 3 screen heights, at z_a) is reduced by >= 10 % relative to the bare case; the zone and the threshold are constants in the test, not tuned per run."}
+      - {id: BL-04, work_package: WP-BACKLOG, owner: ops, skill: engineering-canon, kind: artifact, name: "Windows start/stop/reset scripts reviewed and parsed", acceptance: "start.ps1, stop.ps1, reset.ps1 and scripts/rafaga.ps1 parse with zero errors via [System.Management.Automation.Language.Parser]::ParseFile and Invoke-ScriptAnalyzer reports zero Error-severity findings, both run in a pinned PowerShell container image by a committed script (scripts/lint-ps.sh); .bat wrappers reviewed (CRLF, -NoProfile -ExecutionPolicy Bypass, pause on error); docs/ops/windows-checklist.md lists the manual steps (Docker Desktop + WSL2, GPU probe, start, first login, stop keeps data, reset asks 'borrar'); the real-Windows run is a user action and stays open until the user reports it."}
+      - {id: BL-05, work_package: WP-BACKLOG, owner: solver + ops, skill: "fastapi-senior (Dockerfile) + engineering-canon (compose/scripts)", kind: artifact, name: "Solver image slimmed + optional registry pull (ADR-29)", acceptance: "`docker image inspect -f '{{.Size}}'` of the solver image built from services/solver is <= 3000000000 bytes; inside that image the ADR-17 device probe (RawKernel + reduction) passes under compose.gpu.yaml and the container starts healthy without a GPU; with RAFAGA_IMAGE_REGISTRY empty `docker compose config` shows build contexts only, with it set it shows ${RAFAGA_IMAGE_REGISTRY}/rafaga-<svc>:${RAFAGA_VERSION} images; start.sh/start.ps1 pull when set and fall back to a local build on pull failure (tested with an unreachable registry); .env.example and README document both variables."}
+      - {id: BL-06, work_package: WP-BACKLOG, owner: api + web, skill: "fastapi-senior (api) + react-senior/frontend-design (web)", kind: screen, name: "CPU 3D warning with ETA and explicit confirmation (NFR-03, ADR-28)", acceptance: "api: GET /api/v1/system/status returns 401 without bearer and solver.device/mlups_3d from the freshest solver_nodes row; POST /simulations/estimate for volume3d on a cpu node returns device=cpu and eta_seconds computed from mlups_3d (ADR-16 constant when null). web (Vitest + MSW): in Paso 5 a volume3d estimate with device cpu opens a modal showing ETA (h min), node count and the NFR-03 limit; Cancel (initial focus, Escape) sends nothing; 'Lanzar en CPU' sends POST /simulations; GPU estimates and 2D kinds launch without the modal; solver offline disables launch with an explanation; axe reports no serious violations in the modal."}
+      - {id: BL-07, work_package: WP-BACKLOG, owner: solver, skill: fastapi-senior, kind: job, name: "PDF wind-arrow badge size", acceptance: "A report/render test measures the wind-direction badge bounding box on every map of a generated PDF/PNG and asserts its longest side <= 12 % of the map's shorter side (tolerance +0.5 %), for both portrait and landscape map aspect ratios, while staying legible (arrow and U10 label present)."}
+      - {id: BL-08, work_package: WP-BACKLOG, owner: web, skill: "react-senior + frontend-design", kind: artifact, name: "Particle fps measured in a real browser", acceptance: "A committed script (services/web/scripts/measure-particle-fps.mjs, Playwright headed Chromium with hardware acceleration at 1920x1080) opens a plan result with the particle layer, samples requestAnimationFrame for >= 20 s after warm-up and writes JSON {mean_fps, p5_fps, gpu_renderer, particles}; a recorded run on the reference laptop shows mean >= 50 and p5 >= 30 with the renderer string not SwiftShader/llvmpipe (software rendering does not count); results file committed under services/web/perf/."}
+      - {id: BL-09, work_package: WP-BACKLOG, owner: contracts + solver, skill: "software-architect (contract text) + fastapi-senior (pinning test)", kind: artifact, name: "Job contract v1.1: api-owned columns read by the solver", acceptance: "contracts/job-contract.md v1.1 adds a section listing every api-owned table/column the solver reads (at least alternatives.id and alternatives.is_base; alternatives.project_id is documented as NOT read, the project comes from results.project_id, matching job-contract.md section 2.7) as read-only, additive and documentary (no DDL change; schema_meta.job_contract_version keeps major '1'); a solver test parses the solver's SQL for api-owned columns and fails when the set differs from the documented list, and a test against the contract DDL asserts alternatives.is_base exists as boolean NOT NULL."}
+      - {id: BL-10, work_package: WP-BACKLOG, kind: feature, name: GPS location, acceptance: "A 'Usar mi ubicación' button uses navigator.geolocation (high accuracy, timeout) and shows the accuracy in m, with graceful Spanish messages for denied, unavailable, timeout and insecure context (e.g. LAN http IP); CoordinateForm also accepts DMS and DDM (5°32'13\"N 73°21'38\"W, 5 32.2 N) with N/S/E/W and O for Oeste, comma or dot decimals, besides decimal; LocationSummary shows decimal and DMS. Coordinates never leave the machine except the existing rounded Open-Meteo call (NFR-15)."}
+      - {id: BL-11, work_package: WP-BACKLOG, kind: feature, name: Cardinal points, acceptance: "Reusable accessible CompassRose (N, NE, E, SE, S, SO, O, NO; N emphasized) on LocationMap, PlanCanvas, Geometry3DView (gizmo following camera azimuth) and FlowCanvas; every wind direction in the UI reads 'desde NE · 45°' (meteorological FROM convention), including WindRose axis labels; shared degToCardinal(deg, points=16) util with tests."}
+      - {id: BL-12, work_package: WP-BACKLOG, owner: web+solver, kind: feature, name: Strategy-effect summary for architects, acceptance: "(1) Compare screen shows, per alternative vs base, a plain-Spanish summary card built only from existing api data (K fields, /comparisons/areas, /comparisons/comfort; no new api field): '<alternativa> reduce/aumenta el viento un X % en la zona protegida' (mean K change over cells with dK < dk_reduction) or, without protected cells, in the whole analysed area; Lawson shifts (m2 that pass from class X to Y, m2 that improve/worsen at least, unsafe-gust area before/after); verdict mejora / empeora / sin cambio relevante with |mean dK| < 3 % = sin cambio; CFD jargon only inside an expandable details. The PDF comparison section (report_comparison.py) emits the same sentences (golden-string tests on web and solver agree). (2) Every warning code that can reach the UI (solver: domain_top_capped, low_reynolds, local_mach_spikes, convergence_cap_reached, element_not_representable_2d; scene: element_orphaned, element_degenerate, setback_tiers_truncated, below_analysis_height, above_building_clamped) has an es-CO label in results.json; a test fails when a code lacks a label. (3) A non-alarming model-confidence note ('Ráfaga sirve para comparar alternativas y detectar zonas incómodas en etapas de diseño. No reemplaza un ensayo en túnel de viento para proyectos críticos.') is merged into the permanent FR-48 disclaimer (expandable detail under the strip on result and compare screens) and into the PDF closing section; the short FR-48 line is unchanged."}
+      # ---------------- WP-OPS (engineering-canon) — repo root ----------------
+      - {id: OPS-01, work_package: WP-OPS, kind: artifact, name: compose.yaml, acceptance: "name: rafaga; services db (postgres official, rafaga-db volume, pg_isready healthcheck, unpublished), api (127.0.0.1:${RAFAGA_API_PORT:-0}:8000, rafaga-data:/data, depends on db healthy), solver (unpublished, rafaga-data:/data, depends on api healthy), web (127.0.0.1:${RAFAGA_WEB_PORT:-0}:3000, RAFAGA_API_PORT env); no bind mounts; `docker compose config` validates."}
+      - {id: OPS-02, work_package: WP-OPS, kind: artifact, name: compose.gpu.yaml, acceptance: "Override adds deploy.resources.reservations.devices [{driver: nvidia, count: all, capabilities: [gpu]}] to solver only; `docker compose -f compose.yaml -f compose.gpu.yaml config` validates."}
+      - {id: OPS-03, work_package: WP-OPS, kind: artifact, name: start.sh + scripts/rafaga.sh, acceptance: "On Linux: checks docker and compose v2 (else message + install link, exit 1), creates .env with generated POSTGRES_PASSWORD/JWT_SECRET without printing them, runs the ADR-17 GPU probe, `up -d --build`, persists kernel-assigned ports on first run (ADR-05), retries once after clearing a busy port, waits for api /health and web, prints 'Ráfaga está lista en http://localhost:<port>' and the device, opens the browser with xdg-open."}
+      - {id: OPS-04, work_package: WP-OPS, kind: artifact, name: start.ps1 + scripts/rafaga.ps1, acceptance: "Same behaviour as OPS-03 on Windows PowerShell 5.1+ with Docker Desktop/WSL2, secrets from System.Security.Cryptography.RandomNumberGenerator, browser via Start-Process."}
+      - {id: OPS-05, work_package: WP-OPS, kind: artifact, name: start.bat, acceptance: "Double-clickable wrapper running `powershell -NoProfile -ExecutionPolicy Bypass -File start.ps1` and pausing on error."}
+      - {id: OPS-06, work_package: WP-OPS, kind: artifact, name: stop.sh / stop.ps1 / stop.bat, acceptance: "Runs `docker compose -p rafaga stop`; volumes and .env are untouched (data visible again after start)."}
+      - {id: OPS-07, work_package: WP-OPS, kind: artifact, name: reset.sh / reset.ps1 / reset.bat, acceptance: "Asks the user to type 'borrar', then `docker compose -p rafaga down -v --remove-orphans` and removes persisted ports from .env (secrets kept); any other answer aborts without changes."}
+      - {id: OPS-08, work_package: WP-OPS, kind: artifact, name: .env.example, acceptance: "Lists every variable of contracts.deployment.env_vars with empty secrets and documented defaults; contains no location values."}
+      - {id: OPS-09, work_package: WP-OPS, kind: artifact, name: .gitattributes + .gitignore, acceptance: ".gitattributes forces eol=lf for *.sh and docker-entrypoint.sh and eol=crlf for *.bat/*.ps1; .gitignore excludes .env."}
+      - {id: OPS-10, work_package: WP-OPS, kind: artifact, name: README.md (es), acceptance: "Spanish step-by-step install for Linux and Windows (Docker Desktop + WSL2, NVIDIA driver, .wslconfig memory), start/stop/reset, GPU troubleshooting (ADR-17), hardware guidance (ADR-16), data privacy (only Open-Meteo and OSM egress), limitations disclaimer."}
+      - {id: OPS-11, work_package: WP-OPS, kind: artifact, name: scripts/smoke.sh, acceptance: "Against a running stack: sets up a user, creates a project with manual elevation and manual wind (synthetic values), saves one block, runs plan2d at coarse dx, waits for completion and asserts the K field and k.png exist; exits non-zero on any failure."}
+    files_expected:
+      - compose.yaml
+      - compose.gpu.yaml
+      - .env.example
+      - .gitattributes
+      - .gitignore
+      - README.md
+      - start.sh
+      - start.ps1
+      - start.bat
+      - stop.sh
+      - stop.ps1
+      - stop.bat
+      - reset.sh
+      - reset.ps1
+      - reset.bat
+      - scripts/rafaga.sh
+      - scripts/rafaga.ps1
+      - scripts/smoke.sh
+      - "services/api/{Dockerfile,.dockerignore,pyproject.toml,requirements.txt,requirements-dev.txt,alembic.ini,.env.example}"
+      - "services/api/alembic/versions/*.py"
+      - "services/api/app/{main.py,configs/config.py}"
+      - "services/api/app/{routers,services,models,repositories}/{auth,users,projects,shares,geo,tiles,wind,geometry,imports,backgrounds,alternatives,facades,scene,simulations,jobs,results,comparisons,exports,reports,settings,templates,system}/"
+      - "services/api/app/security/{jwt,ownership,rate_limit,passwords}/"
+      - "services/api/app/core/{errors,logging,db}/"
+      - "services/api/tests/** (mirrors app/)"
+      - "services/solver/{Dockerfile,.dockerignore,pyproject.toml,requirements.txt,requirements-dev.txt}"
+      - "services/solver/app/{main.py,configs/config.py}"
+      - "services/solver/app/routers/health/health_router.py"
+      - "services/solver/app/services/{queue,device,voxelize,lbm2d,lbm3d,boundary,porous,convergence,postprocess,comfort,render,report,bench}/"
+      - "services/solver/app/repositories/{jobs,results,nodes}/"
+      - "services/solver/tests/** (mirrors app/, validation marked slow)"
+      - "services/web/{Dockerfile,.dockerignore,docker-entrypoint.sh,serve.json,.nvmrc,package.json,pnpm-lock.yaml,pnpm-workspace.yaml,vite.config.ts}"
+      - "services/web/src/{app,api,components,stores,tables,types,hooks,lib,styles,locales,engines}/"
+      - "services/web/tests/** (mirrors src/)"
+    dependencies:
+      - "api: fastapi, uvicorn, pydantic-settings, sqlalchemy[asyncio], asyncpg, alembic, pyjwt, argon2-cffi, limits, httpx, numpy, scipy, shapely>=2, ezdxf, trimesh, ifcopenshell (R2), pypdfium2, pillow, python-multipart"
+      - "solver: fastapi, uvicorn, pydantic-settings, psycopg[binary]>=3, numpy, scipy, cupy-cuda12x[ctk] (optional at runtime), matplotlib, cmocean, shapely>=2, weasyprint, pillow"
+      - "web: react 19, vite, typescript, @tanstack/react-query, @tanstack/react-router, @tanstack/react-table, zustand, shadcn/ui, maplibre-gl, three, @react-three/fiber, @react-three/drei, i18next, react-i18next, @fontsource/hanken-grotesk, @fontsource/literata, d3-scale, d3-shape; dev: vitest, @testing-library/react, msw, @axe-core/playwright or vitest-axe"
+      - "external: Open-Meteo geocoding/elevation/archive (no key), OSM raster tiles via TILE_URL_TEMPLATE"
+  security:
+    focus:
+      - "OWASP-A01 IDOR: every project-scoped route (projects, alternatives, facade elements, studies, jobs, results, fields, exports, reports, backgrounds, shares) resolves ownership/share in security/ownership; foreign ids return byte-identical 404."
+      - "OWASP-A01 role enforcement: reviewer cannot write or launch jobs (403 forbidden) on shared projects; architect-only user management."
+      - "OWASP-A07 auth: argon2id, HS256 JWT with exp, JWT_SECRET ≥64 random bytes generated by start script, setup endpoint closed after first user under advisory lock, login rate limit 10/min/address, identical 401 for unknown email and wrong password."
+      - "OWASP-A03/A08 uploads: extension + magic-byte sniffing, size limits 100 MB/25 MB enforced while streaming, parsers run with timeouts, files stored under server-generated names, no path from the client ever touches the filesystem (field_name/image_name allow-listed)."
+      - "OWASP-A10 SSRF: outbound HTTP only to the configured Open-Meteo and tile hosts; tile z/x/y validated as integers in range; user input never forms a host."
+      - "OWASP-A05 config: CORS restricted to ALLOWED_ORIGINS (both localhost and 127.0.0.1 forms of the web port), ports bound to 127.0.0.1, containers non-root uid 10001/node, no secrets in images, logs or build args; .env gitignored."
+      - "Privacy NFR-15: no telemetry; outbound payloads limited to rounded coordinates, search text and tile coordinates; verify with an egress allow-list test in api."
+      - "Resource exhaustion: estimate/memory guard before allocation, heavy lane single concurrency, job payload size cap 20 MB, alternatives limit, rate limits per ADR-26."
+  testing:
+    framework: "pytest (api, solver; validation and GPU tests marked slow/gpu), vitest + Testing Library + MSW (web), scripts/smoke.sh (end-to-end against compose)"
+    coverage_target: 0.8
+    notes: >-
+      NFR-18: ≥80 % coverage on api services/{geometry,imports,scene,wind} and solver
+      services/{voxelize,postprocess,comfort}. Contract tests: api asserts every scene it
+      emits validates against contracts/scene.schema.json and every job payload matches
+      contracts/examples/*.json shape; solver consumes the same example payloads as
+      fixtures. Web MSW handlers are generated from contracts/openapi.yaml examples.
+  documentation:
+    sections:
+      - "README (es): Requisitos, Instalación en Linux, Instalación en Windows (WSL2), GPU NVIDIA, Uso (start/stop/reset), Puertos y URL, Datos y privacidad, Limitaciones, Solución de problemas"
+      - "docs/architecture: plan.yaml, architecture.md, contracts/, adr/"
+      - "services/api/README.md: Stack, Endpoints (link to openapi.yaml), Run, Variables, Migrations, Tests"
+      - "services/solver/README.md: Physics model (ADR-11..15), Device selection, Job lanes, Validation and benchmarks, Variables"
+      - "services/web/README.md: Stack, Runtime config, Design system, Tests"
+  deployment:
+    images:
+      - name: api
+        context: services/api
+        skill: fastapi-senior
+        base: "python:{major}-slim resolved via runtimes.yaml (host 3.12 ≥ floor 3.12 → python:3.12-slim)"
+        internal_port: 8000
+        healthcheck: /health
+        user: "non-root (10001:10001)"
+      - name: solver
+        context: services/solver
+        skill: fastapi-senior
+        base: "python:{major}-slim resolved via runtimes.yaml (python:3.12-slim); CUDA via cupy-cuda12x[ctk] wheels, driver from host"
+        internal_port: 8000
+        healthcheck: /health
+        user: "non-root (10001:10001)"
+        published: false
+        gpu: "optional via compose.gpu.yaml"
+      - name: web
+        context: services/web
+        skill: react-senior
+        base: "node:{major}-slim resolved via runtimes.yaml (host Node 24 LTS → node:24-slim)"
+        internal_port: 3000
+        healthcheck: /
+        user: "non-root (node)"
+        command: "docker-entrypoint.sh → serve -s dist -l tcp://0.0.0.0:3000"
+      - name: db
+        context: null
+        skill: none-official-image
+        base: "postgres:{major}-alpine resolved via runtimes.yaml (floor 16)"
+        internal_port: 5432
+        healthcheck: "pg_isready -U rafaga"
+        user: "postgres (image default, non-root)"
+        published: false
+    compose: compose.yaml
+    compose_overrides: [compose.gpu.yaml]
+    volumes: [rafaga-db, rafaga-data]
+    env_vars:
+      POSTGRES_PASSWORD: "(generated by start script on first run)"
+      DATABASE_URL: "(composed in compose.yaml from POSTGRES_PASSWORD: postgresql://rafaga:${POSTGRES_PASSWORD}@db:5432/rafaga)"
+      JWT_SECRET: "(generated by start script on first run)"
+      JWT_TTL_MINUTES: "720"
+      ADMIN_EMAIL: ""
+      ADMIN_PASSWORD: ""
+      ALLOWED_ORIGINS: "(composed in compose.yaml: http://localhost:${RAFAGA_WEB_PORT},http://127.0.0.1:${RAFAGA_WEB_PORT})"
+      TRUST_PROXY: "false"
+      RATE_LIMIT_ANON_PER_MINUTE: "120"
+      RATE_LIMIT_PER_MINUTE: "600"
+      RATE_LIMIT_LOGIN_PER_MINUTE: "10"
+      RATE_LIMIT_TILES_PER_MINUTE: "1500"
+      DATA_DIR: "/data"
+      OPEN_METEO_GEOCODING_URL: "https://geocoding-api.open-meteo.com/v1/search"
+      OPEN_METEO_ELEVATION_URL: "https://api.open-meteo.com/v1/elevation"
+      OPEN_METEO_ARCHIVE_URL: "https://archive-api.open-meteo.com/v1/archive"
+      TILE_URL_TEMPLATE: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      TILE_USER_AGENT: "Rafaga/1.0 (local desktop app)"
+      TILE_CACHE_MAX_MB: "500"
+      MAX_UPLOAD_GEOMETRY_MB: "100"
+      MAX_UPLOAD_IMAGE_MB: "25"
+      ALTERNATIVES_LIMIT_DEFAULT: "8"
+      JOB_RETENTION_DAYS: "90"
+      RAFAGA_DEVICE: "auto"
+      GPU_MEMORY_FRACTION: "0.85"
+      CPU_MAX_NODES_3D: "3000000"
+      LIGHT_LANE_CONCURRENCY: "2"
+      RAFAGA_WEB_PORT: "(empty → kernel-assigned on first start, then persisted by start script)"
+      RAFAGA_API_PORT: "(empty → kernel-assigned on first start, then persisted by start script)"
+      LOG_LEVEL: "info"
+      RAFAGA_IMAGE_REGISTRY: "(empty → build images locally; set → pull ${RAFAGA_IMAGE_REGISTRY}/rafaga-<svc>:${RAFAGA_VERSION}, ADR-29)"
+      RAFAGA_VERSION: "(fixed release tag used only with RAFAGA_IMAGE_REGISTRY; never latest)"
+

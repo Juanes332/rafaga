@@ -1,0 +1,63 @@
+/* The grid is the offline background: 10 px minor, 100 px major, like the drawing board. */
+.root {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-ground);
+  background-image:
+    linear-gradient(var(--color-grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-major) 1px, transparent 1px),
+    linear-gradient(var(--color-grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-minor) 1px, transparent 1px);
+  background-size:
+    100px 100px,
+    100px 100px,
+    10px 10px,
+    10px 10px;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+.notice {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  max-width: 44ch;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-sm);
+  z-index: 2;
+}
+
+.attribution {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.map :global(.rafaga-site-marker) {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  border: 3px solid var(--color-surface-raised);
+  box-shadow: 0 0 0 1.5px var(--color-ink);
+}
+
+.map :global(.maplibregl-ctrl-attrib) {
+  background: rgb(251 252 252 / 0.85);
+  color: #1e2a30;
+}
+
+.compass {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-6);
+  z-index: 1;
+}

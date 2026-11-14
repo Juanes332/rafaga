@@ -1,0 +1,33 @@
+{
+  "steps": {
+    "label": "Pasos del proyecto",
+    "location": "Proyecto",
+    "geometry": "Geometría",
+    "wind": "Viento",
+    "alternatives": "Alternativas",
+    "simulate": "Simular",
+    "compare": "Comparar",
+    "short": {
+      "location": "Proyecto",
+      "geometry": "Geometría",
+      "wind": "Viento",
+      "alternatives": "Alternat.",
+      "simulate": "Simular",
+      "compare": "Comparar"
+    },
+    "done": "Completado",
+    "current": "Paso actual",
+    "locked": "Bloqueado",
+    "lockedLocation": "Fija la ubicación",
+    "lockedGeometry": "Dibuja un edificio",
+    "lockedResults": "Simula dos alternativas"
+  },
+  "inspector": {
+    "title": "Parámetros",
+    "open": "Parámetros",
+    "close": "Cerrar parámetros",
+    "empty": "Selecciona algo en el lienzo para ver sus parámetros."
+  },
+  "results": "Resultados",
+  "smallScreen": "Dibujar funciona mejor en una pantalla más grande"
+}

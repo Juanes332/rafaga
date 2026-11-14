@@ -1,0 +1,88 @@
+.root {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.building {
+  fill: var(--color-surface-raised);
+  stroke: var(--color-ink);
+  stroke-width: 0.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.edge {
+  stroke: var(--color-ink);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+}
+
+.pickable {
+  cursor: pointer;
+  stroke-width: 10px;
+  stroke-opacity: 0.001;
+}
+
+.pickable:hover {
+  stroke: var(--color-accent);
+  stroke-opacity: 0.35;
+}
+
+.pickable:focus-visible {
+  outline: none;
+  stroke: var(--color-focus-ring);
+  stroke-opacity: 1;
+  stroke-width: 4px;
+}
+
+.selected,
+.selected:hover {
+  stroke: var(--color-accent);
+  stroke-opacity: 1;
+  stroke-width: 4px;
+}
+
+/* Strategies are drawn in ink with a distinct line pattern each, never with data colours. */
+.strategy {
+  stroke: var(--color-ink);
+  vector-effect: non-scaling-stroke;
+  fill: none;
+}
+
+.screen {
+  stroke-width: 3px;
+  stroke-dasharray: 2 3;
+}
+
+.fins {
+  stroke-width: 8px;
+  stroke-dasharray: 1.5 5;
+}
+
+.canopy {
+  stroke-width: 6px;
+  stroke-opacity: 0.55;
+}
+
+.setback {
+  stroke-width: 2px;
+  stroke-dasharray: 10 3;
+}
+
+.vegetation {
+  stroke-width: 7px;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 9;
+}
+
+.name {
+  fill: var(--color-ink-muted);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.north {
+  fill: var(--color-ink);
+}

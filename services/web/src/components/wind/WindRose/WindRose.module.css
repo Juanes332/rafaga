@@ -1,0 +1,108 @@
+.root {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--color-rule);
+  stroke-width: 1;
+}
+
+.cardinal {
+  fill: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.cardinalMajor {
+  fill: var(--color-ink);
+  font-weight: 600;
+}
+
+.degrees {
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.petal {
+  stroke: var(--color-ink);
+  stroke-width: 0.75;
+  stroke-opacity: 0.55;
+  pointer-events: none;
+}
+
+.hit {
+  fill: transparent;
+  stroke: transparent;
+  cursor: pointer;
+}
+
+.hit:hover {
+  fill: var(--color-accent-wash);
+}
+
+.hit:focus-visible {
+  outline: none;
+  stroke: var(--color-focus-ring);
+  stroke-width: 2;
+}
+
+.hitSelected {
+  fill: var(--color-accent-wash);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.arrow {
+  stroke: var(--color-ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.legend {
+  margin: 0;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.legendTitle {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.bar {
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--color-rule);
+}
+
+.ticks {
+  position: relative;
+  height: 16px;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-muted);
+}
+
+.ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.ticks span:first-child {
+  transform: none;
+}
+
+.ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+.calm {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}

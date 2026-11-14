@@ -1,0 +1,20 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+psycopg[binary]>=3
+numpy
+scipy
+# ADR-17 (amended): only the CUDA pieces the solver uses (RawKernel via NVRTC,
+# runtime, cuBLAS for matmul in macroscopic()). The full [ctk] extra also added
+# cuSOLVER/cuSPARSE/cuFFT/cuRAND/nvJitLink, ~1.1 GB that no code path imports.
+cupy-cuda12x
+nvidia-cuda-runtime-cu12
+nvidia-cuda-nvrtc-cu12
+nvidia-cublas-cu12
+matplotlib
+cmocean
+shapely>=2
+weasyprint
+pillow
+threadpoolctl

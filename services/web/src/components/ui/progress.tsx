@@ -1,0 +1,16 @@
+import * as React from "react";
+import * as ProgressPrimitive from "@radix-ui/react-progress";
+import { cn } from "@/lib/utils";
+
+// No transition: the bar jumps per poll, no shimmer (design-system §4).
+const Progress = React.forwardRef<
+  React.ElementRef<typeof ProgressPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>
+>(({ className, value, ...props }, ref) => (
+  <ProgressPrimitive.Root ref={ref} value={value} className={cn("relative h-1.5 w-full overflow-hidden rounded-full bg-input/40 border border-input", className)} {...props}>
+    <ProgressPrimitive.Indicator className="h-full w-full flex-1 bg-primary" style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }} />
+  </ProgressPrimitive.Root>
+));
+Progress.displayName = ProgressPrimitive.Root.displayName;
+
+export { Progress };

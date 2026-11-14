@@ -1,0 +1,40 @@
+.root {
+  pointer-events: none;
+}
+
+.draft {
+  fill: var(--color-accent-wash);
+  stroke: var(--color-accent);
+  stroke-width: 2px;
+  stroke-dasharray: 6 4;
+}
+
+polyline.draft {
+  fill: none;
+}
+
+.vertex {
+  fill: var(--color-surface-raised);
+  stroke: var(--color-accent);
+  stroke-width: 0.2;
+}
+
+.first {
+  fill: var(--color-accent);
+}
+
+.ruler {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 1.5px;
+}
+
+.label {
+  fill: var(--color-ink);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--color-ground);
+  stroke-width: 0.4;
+}

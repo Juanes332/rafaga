@@ -1,0 +1,97 @@
+{
+  "title": "Simular",
+  "form": {
+    "title": "Nueva simulación",
+    "alternative": "Alternativa",
+    "kind": "Tipo de simulación",
+    "kinds": {
+      "plan2d": "Planta 2D",
+      "section2d": "Corte vertical",
+      "volume3d": "3D"
+    },
+    "kindHelp": {
+      "plan2d": "Rápida. Viento a la altura del peatón en planta; sirve para comparar alternativas.",
+      "section2d": "Viento en un corte vertical que trazas sobre la planta.",
+      "volume3d": "Más precisa y mucho más lenta. Incluye el viento que baja por las fachadas."
+    },
+    "sectionNote": "El corte se traza sobre la planta en la vista de resultados: abre un resultado en planta y usa «Corte vertical».",
+    "directions": "Direcciones del viento",
+    "directionsHelp": "Elige de dónde sopla el viento. Puedes elegir de 1 a 16 direcciones; cada una es una simulación.",
+    "directionsCount_one": "{{count}} dirección elegida",
+    "directionsCount_other": "{{count}} direcciones elegidas",
+    "coverage": "Cubren el {{value}} del tiempo",
+    "noRose": "Sin rosa de vientos, la cobertura no se puede calcular.",
+    "selectDominant": "Elegir las más frecuentes",
+    "clear": "Quitar todas",
+    "cellSize": "Tamaño de celda",
+    "cellSizeHelp": "Lado de cada celda de cálculo. Celdas más pequeñas dan más detalle y tardan más.",
+    "device": "Dispositivo de cálculo",
+    "devices": {
+      "auto": "Automático",
+      "cpu": "CPU",
+      "gpu": "GPU"
+    },
+    "submit": "Simular",
+    "submitting": "Enviando simulación",
+    "needDirection": "Elige al menos una dirección del viento.",
+    "launched": "Simulación en curso"
+  },
+  "estimate": {
+    "title": "Antes de simular",
+    "loading": "Calculando el tamaño de la malla",
+    "nodes": "Celdas de cálculo",
+    "memory": "Memoria",
+    "memoryOf": "{{used}} de {{budget}} disponibles",
+    "eta": "Tiempo estimado",
+    "device": "Se calculará en",
+    "fits": "Cabe en la memoria disponible.",
+    "tooLarge": "La malla no cabe en la memoria: necesita {{used}} y hay {{budget}} disponibles.",
+    "useProposed": "Usar celda de {{dx}}",
+    "autoCoarsen": "Ajustar la celda automáticamente al simular",
+    "solverOffline": "El motor de simulación no está disponible ahora, así que no se puede estimar el tamaño."
+  },
+  "offlineReason": "El motor de simulación no está disponible: no se puede lanzar hasta que arranque.",
+  "cpuWarning": {
+    "title": "Esta simulación 3D será muy lenta",
+    "body": "El motor de simulación no tiene tarjeta gráfica (GPU) disponible. Calcular en 3D solo con procesador (CPU) es unas 100 veces más lento y puede tardar horas. Una simulación en planta 2D sí es rápida en CPU.",
+    "eta": "Tiempo estimado: {{value}}",
+    "nodes": "Celdas de cálculo: {{value}}",
+    "limit": "Límite en CPU (NFR-03): {{value}} celdas",
+    "confirm": "Lanzar en CPU"
+  },
+  "jobs": {
+    "title": "Simulaciones",
+    "empty": "Elige direcciones y simula tu primera alternativa",
+    "study": "{{alternative}}, {{kind}}",
+    "progress": "Progreso de la simulación {{dir}}",
+    "eta": "Quedan {{value}}",
+    "device": "En {{device}}",
+    "cancelStudy": "Cancelar simulación",
+    "cancelJob": "Cancelar simulación {{dir}}",
+    "retry": "Reanudar simulación {{dir}}",
+    "viewResult": "Ver resultado {{dir}}",
+    "compare": "Comparar resultados",
+    "reports": "Informes",
+    "cancelled": "Simulación cancelada",
+    "createdAt": "Lanzada {{when}}",
+    "status": {
+      "queued": "En cola",
+      "running": "Simulación en curso",
+      "completed": "Simulación lista",
+      "partial": "Lista en parte",
+      "failed": "Falló",
+      "cancelled": "Cancelada"
+    },
+    "phase": {
+      "queued": "Esperando turno",
+      "preparing": "Preparando la malla",
+      "voxelize": "Preparando la malla",
+      "spin_up": "Arrancando el flujo",
+      "averaging": "Promediando el viento",
+      "postprocess": "Calculando zonas",
+      "render": "Dibujando imágenes",
+      "done": "Terminado"
+    }
+  },
+  "locked": "Fija la ubicación del proyecto para obtener el viento del sitio. Haz clic en el mapa, busca un lugar o escribe las coordenadas."
+}

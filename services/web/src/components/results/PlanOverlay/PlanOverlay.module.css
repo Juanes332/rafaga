@@ -1,0 +1,46 @@
+.building {
+  fill: var(--color-surface);
+  stroke: var(--color-ink);
+  stroke-width: 1.5;
+}
+
+.acceleration,
+.stagnation,
+.reduction,
+.pointLabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--color-surface-raised);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.acceleration {
+  fill: var(--color-zone-accel-text);
+}
+
+.stagnation {
+  fill: var(--color-zone-stagnation);
+}
+
+.reduction {
+  fill: var(--color-zone-reduction);
+}
+
+.section {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+}
+
+.point {
+  fill: var(--color-surface-raised);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.pointLabel {
+  fill: var(--color-accent);
+  font-weight: 500;
+}

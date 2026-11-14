@@ -1,0 +1,285 @@
+{
+  "contract_version": 1,
+  "job_kind": "render",
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "export_id": "00000000-0000-4000-8000-000000000006",
+  "output_dir": "exports/00000000-0000-4000-8000-000000000007",
+  "file_name": "00000000-0000-4000-8000-000000000006.png",
+  "layer": "delta_k",
+  "result_dir": "results/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000003/00000000-0000-4000-8000-000000000004",
+  "compare_result_dir": "results/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000008/00000000-0000-4000-8000-000000000009",
+  "comfort_dir": null,
+  "output_grid": {
+    "frame": "plan",
+    "origin_x": -68.0,
+    "origin_y": -73.0,
+    "dx_m": 1.0,
+    "nx": 136,
+    "ny": 146
+  },
+  "thresholds": {
+    "k_accel": 1.2,
+    "k_stagnation": 0.3,
+    "dk_reduction": -0.1
+  },
+  "dpi": 300,
+  "labels": {
+    "project_name": "Proyecto de prueba",
+    "alternative_a": "Caso base",
+    "alternative_b": "Celosía 40 %",
+    "wind": "Viento del 270° (O), U10 = 10,0 m/s",
+    "disclaimer": "Herramienta de anteproyecto: compara alternativas, no sustituye un ensayo en túnel de viento."
+  },
+  "scene": {
+    "schema_version": "1.0",
+    "units": "m",
+    "frame": "local_enu",
+    "source": {
+      "project_id": "00000000-0000-4000-8000-000000000001",
+      "alternative_id": "00000000-0000-4000-8000-000000000002",
+      "geometry_version": 3,
+      "compiled_at": "2026-01-01T00:00:00Z"
+    },
+    "analysis_height_m": 1.5,
+    "ground": {
+      "z0_m": 1.0
+    },
+    "h_max_m": 24.0,
+    "bounds": {
+      "base_min": [
+        -10.0,
+        -15.0,
+        0.0
+      ],
+      "base_max": [
+        10.0,
+        15.0,
+        24.0
+      ],
+      "envelope_m": 10
+    },
+    "solids": [
+      {
+        "id": "b:b-0001:t0",
+        "origin": {
+          "kind": "building",
+          "building_id": "b-0001",
+          "element_id": null
+        },
+        "footprint": [
+          [
+            -10.0,
+            -15.0
+          ],
+          [
+            10.0,
+            -15.0
+          ],
+          [
+            10.0,
+            15.0
+          ],
+          [
+            -10.0,
+            15.0
+          ]
+        ],
+        "holes": [],
+        "z_min": 0.0,
+        "z_max": 24.0,
+        "thin_axis_m": null
+      },
+      {
+        "id": "f:canopy-1:0",
+        "origin": {
+          "kind": "canopy",
+          "building_id": "b-0001",
+          "element_id": "canopy-1"
+        },
+        "footprint": [
+          [
+            -10.0,
+            15.0
+          ],
+          [
+            10.0,
+            15.0
+          ],
+          [
+            10.0,
+            17.0
+          ],
+          [
+            -10.0,
+            17.0
+          ]
+        ],
+        "z_min": 3.5,
+        "z_max": 3.8,
+        "thin_axis_m": 0.3
+      },
+      {
+        "id": "f:fins-1:0",
+        "origin": {
+          "kind": "fin",
+          "building_id": "b-0001",
+          "element_id": "fins-1"
+        },
+        "footprint": [
+          [
+            -10.5,
+            9.925
+          ],
+          [
+            -10.0,
+            9.925
+          ],
+          [
+            -10.0,
+            10.075
+          ],
+          [
+            -10.5,
+            10.075
+          ]
+        ],
+        "z_min": 0.0,
+        "z_max": 24.0,
+        "thin_axis_m": 0.15
+      },
+      {
+        "id": "f:fins-1:1",
+        "origin": {
+          "kind": "fin",
+          "building_id": "b-0001",
+          "element_id": "fins-1"
+        },
+        "footprint": [
+          [
+            -10.5,
+            -0.075
+          ],
+          [
+            -10.0,
+            -0.075
+          ],
+          [
+            -10.0,
+            0.075
+          ],
+          [
+            -10.5,
+            0.075
+          ]
+        ],
+        "z_min": 0.0,
+        "z_max": 24.0,
+        "thin_axis_m": 0.15
+      },
+      {
+        "id": "f:fins-1:2",
+        "origin": {
+          "kind": "fin",
+          "building_id": "b-0001",
+          "element_id": "fins-1"
+        },
+        "footprint": [
+          [
+            -10.5,
+            -10.075
+          ],
+          [
+            -10.0,
+            -10.075
+          ],
+          [
+            -10.0,
+            -9.925
+          ],
+          [
+            -10.5,
+            -9.925
+          ]
+        ],
+        "z_min": 0.0,
+        "z_max": 24.0,
+        "thin_axis_m": 0.15
+      }
+    ],
+    "porous": [
+      {
+        "id": "f:screen-1:0",
+        "origin": {
+          "kind": "screen",
+          "building_id": "b-0001",
+          "element_id": "screen-1"
+        },
+        "footprint": [
+          [
+            -10.0,
+            -15.6
+          ],
+          [
+            10.0,
+            -15.6
+          ],
+          [
+            10.0,
+            -15.5
+          ],
+          [
+            -10.0,
+            -15.5
+          ]
+        ],
+        "z_min": 0.0,
+        "z_max": 3.0,
+        "model": "screen",
+        "porosity": 0.4,
+        "loss_coefficient": 8.2317,
+        "normal": [
+          0.0,
+          -1.0
+        ],
+        "thickness_m": 0.1
+      },
+      {
+        "id": "f:veg-1:0",
+        "origin": {
+          "kind": "vegetation",
+          "building_id": "b-0001",
+          "element_id": "veg-1"
+        },
+        "footprint": [
+          [
+            11.0,
+            -15.0
+          ],
+          [
+            14.0,
+            -15.0
+          ],
+          [
+            14.0,
+            15.0
+          ],
+          [
+            11.0,
+            15.0
+          ]
+        ],
+        "z_min": 0.0,
+        "z_max": 8.0,
+        "model": "vegetation",
+        "lad_m2_m3": 1.0,
+        "drag_coefficient": 0.2
+      }
+    ],
+    "warnings": [
+      {
+        "code": "below_analysis_height",
+        "ref": "canopy-1"
+      }
+    ]
+  }
+}

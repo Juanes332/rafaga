@@ -1,0 +1,8 @@
+.loading {
+  padding: var(--space-6);
+  color: var(--color-ink-muted);
+}
+
+.notice {
+  margin: var(--space-6);
+}

@@ -1,0 +1,7 @@
+{
+  "compass": {
+    "label": "Puntos cardinales: norte, noreste, este, sureste, sur, suroeste, oeste y noroeste.",
+    "northUp": "El norte está arriba.",
+    "northRotated": "El norte apunta {{deg}}° en el sentido del reloj desde arriba."
+  }
+}

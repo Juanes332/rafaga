@@ -1,0 +1,1 @@
+"""Canonical scene domain."""

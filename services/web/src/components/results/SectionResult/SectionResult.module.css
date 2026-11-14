@@ -1,0 +1,40 @@
+.root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-ground);
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+}
+
+.axis {
+  stroke: var(--color-ink);
+  stroke-width: 1;
+}
+
+.tick,
+.axisLabel {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  fill: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.axisLabel {
+  fill: var(--color-ink);
+  font-size: var(--text-sm);
+}
+
+.legend {
+  padding: 0 var(--space-4) var(--space-4);
+}

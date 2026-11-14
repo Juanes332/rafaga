@@ -1,0 +1,16 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-surface-raised);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.text {
+  flex: 1 1 32ch;
+  color: var(--color-ink);
+  max-width: 72ch;
+}

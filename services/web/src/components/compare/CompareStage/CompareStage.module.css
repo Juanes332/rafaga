@@ -1,0 +1,128 @@
+.root {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  overflow: hidden;
+  background: var(--color-ground);
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.clipB {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tagA,
+.tagB {
+  position: absolute;
+  top: var(--space-3);
+  padding: 2px var(--space-2);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  white-space: pre;
+}
+
+.tagA {
+  left: var(--space-3);
+}
+
+.tagB {
+  right: var(--space-3);
+}
+
+.handleV,
+.handleH {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+}
+
+.handleV {
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  margin-left: -12px;
+  cursor: ew-resize;
+}
+
+.handleH {
+  left: 0;
+  right: 0;
+  height: 24px;
+  margin-top: -12px;
+  cursor: ns-resize;
+}
+
+.handleV::before,
+.handleH::before {
+  content: "";
+  position: absolute;
+  background: var(--color-surface-raised);
+  box-shadow: 0 0 0 1px var(--color-ink);
+}
+
+.handleV::before {
+  top: 0;
+  bottom: 0;
+  left: 11px;
+  width: 2px;
+}
+
+.handleH::before {
+  left: 0;
+  right: 0;
+  top: 11px;
+  height: 2px;
+}
+
+.grip {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  border: 2px solid var(--color-ink);
+  box-shadow: var(--shadow-float);
+}
+
+.handleV:focus-visible .grip,
+.handleH:focus-visible .grip {
+  border-color: var(--color-accent);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-ground);
+}
+
+.readout {
+  display: flex;
+  gap: var(--space-6);
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl-lh);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-height: var(--text-2xl-lh);
+}

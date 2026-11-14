@@ -1,0 +1,61 @@
+{
+  "title": "Ubicación del proyecto",
+  "emptyTitle": "Elige dónde está tu proyecto",
+  "emptyLead": "Haz clic en el mapa, busca un lugar o escribe las coordenadas. Con la ubicación obtenemos la altitud, la densidad del aire y el viento del sitio.",
+  "search": {
+    "label": "Buscar lugar",
+    "placeholder": "Ciudad, barrio o dirección",
+    "hint": "Escribe al menos 3 letras.",
+    "empty": "No encontramos ese lugar. Prueba otro nombre o haz clic en el mapa.",
+    "searching": "Buscando"
+  },
+  "coords": {
+    "title": "Coordenadas",
+    "lat": "Latitud",
+    "lon": "Longitud",
+    "submit": "Fijar ubicación",
+    "submitting": "Fijando ubicación",
+    "invalid": "No pudimos leer las coordenadas. Usa grados decimales (5,5369), o grados, minutos y segundos (5°32'13\"N, 73°21'38\"O). La latitud va de −90 a 90 y la longitud de −180 a 180.",
+    "hint": "Acepta grados decimales o grados, minutos y segundos con N, S, E u O (oeste). También puedes pegar las dos juntas en Latitud.",
+    "gps": {
+      "button": "Usar mi ubicación",
+      "locating": "Buscando tu ubicación",
+      "accuracy": "Ubicación del dispositivo fijada, precisión de ±{{m}} m.",
+      "denied": "No hay permiso para usar tu ubicación. Permítelo en el candado de la barra de direcciones o escribe las coordenadas.",
+      "unavailable": "El dispositivo no pudo determinar tu ubicación. Revisa que el GPS o la red estén activos, o escribe las coordenadas.",
+      "timeout": "El dispositivo tardó demasiado en responder. Inténtalo de nuevo al aire libre o escribe las coordenadas.",
+      "insecure": "El navegador solo da la ubicación en conexiones seguras (https o localhost). Abre Ráfaga desde localhost o escribe las coordenadas.",
+      "unsupported": "Este navegador no ofrece ubicación del dispositivo. Escribe las coordenadas o busca un lugar."
+    }
+  },
+  "summary": {
+    "title": "Sitio",
+    "lat": "Latitud",
+    "lon": "Longitud",
+    "elevation": "Altitud",
+    "elevationManual": "Altitud (escrita a mano)",
+    "density": "Densidad del aire",
+    "densityHelp": "Densidad estándar (atmósfera ISA) a la altitud del sitio.",
+    "latDms": "Latitud (GMS)",
+    "lonDms": "Longitud (GMS)"
+  },
+  "elevation": {
+    "title": "Escribe la altitud del sitio",
+    "lead": "No se pudo obtener la altitud automáticamente. Escríbela en metros sobre el nivel del mar; con ella calculamos la densidad del aire.",
+    "label": "Altitud",
+    "submit": "Guardar altitud"
+  },
+  "height": {
+    "label": "Altura de análisis",
+    "help": "Altura sobre el suelo a la que se mide el viento peatonal. 1,5 m es la altura de la cara de una persona de pie."
+  },
+  "map": {
+    "label": "Mapa para elegir la ubicación. Haz clic para fijarla.",
+    "attribution": "© OpenStreetMap contributors",
+    "offline": "Sin conexión al mapa: puedes seguir escribiendo las coordenadas.",
+    "noWebgl": "Este navegador no puede mostrar el mapa. Busca un lugar o escribe las coordenadas.",
+    "marker": "Ubicación del proyecto"
+  },
+  "next": "Siguiente: Geometría",
+  "saved": "Ubicación fijada"
+}

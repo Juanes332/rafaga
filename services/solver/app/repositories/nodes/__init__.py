@@ -1,0 +1,1 @@
+"""Solver node rows domain."""

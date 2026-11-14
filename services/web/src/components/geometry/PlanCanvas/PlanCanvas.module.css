@@ -1,0 +1,46 @@
+.root {
+  position: absolute;
+  inset: 0;
+  background: var(--color-ground);
+}
+
+.svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+.svg:focus-visible {
+  outline-offset: -3px;
+}
+
+.rect,
+.polygon,
+.ruler {
+  cursor: crosshair;
+}
+
+.minor {
+  stroke: var(--color-grid-minor);
+  stroke-width: 1px;
+  fill: none;
+}
+
+.major {
+  stroke: var(--color-grid-major);
+  stroke-width: 1px;
+  fill: none;
+}
+
+.status {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--color-surface-raised);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-rule);
+}

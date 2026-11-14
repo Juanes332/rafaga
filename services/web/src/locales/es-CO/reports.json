@@ -1,0 +1,45 @@
+{
+  "title": "Informes",
+  "versions": "Versiones del informe",
+  "emptyTitle": "Genera un informe cuando tengas resultados",
+  "emptyLead": "El informe PDF reúne los mapas de K, las zonas, el confort Lawson y la comparación con el caso base.",
+  "noResultsReason": "Simula al menos una alternativa para generar un informe.",
+  "noVersions": "Aún no has generado ningún informe para este proyecto.",
+  "form": {
+    "title": "Nuevo informe",
+    "studies": "Simulaciones incluidas",
+    "studyLabel": "{{name}}, {{kind}}, {{directions}}",
+    "baseline": "Caso de referencia",
+    "baselineHelp": "Las demás simulaciones se comparan con esta.",
+    "comfort": "Incluir confort Lawson",
+    "pickOne": "Elige al menos una simulación.",
+    "submit": "Generar informe",
+    "submitting": "Generando informe",
+    "readOnly": "Tu acceso es de solo lectura: puedes descargar informes, pero no generarlos."
+  },
+  "kinds": {
+    "plan2d": "planta 2D",
+    "section2d": "corte vertical",
+    "volume3d": "3D"
+  },
+  "columns": {
+    "version": "Versión",
+    "created": "Creado",
+    "status": "Estado",
+    "actions": "Acciones"
+  },
+  "versionLabel": "v{{version}}",
+  "status": {
+    "queued": "En cola",
+    "running": "Generando informe",
+    "completed": "Informe listo",
+    "failed": "Falló",
+    "cancelled": "Cancelado"
+  },
+  "download": "Descargar PDF",
+  "downloadVersion": "Descargar PDF v{{version}}",
+  "toast": {
+    "queued": "Generando informe",
+    "ready": "Informe listo"
+  }
+}

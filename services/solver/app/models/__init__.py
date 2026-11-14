@@ -1,0 +1,1 @@
+"""Pydantic models by domain."""

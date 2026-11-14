@@ -1,0 +1,110 @@
+{
+  "title": "Alternativas y fachadas",
+  "list": {
+    "title": "Alternativas",
+    "base": "Caso base",
+    "baseNote": "El caso base son tus edificios sin estrategias. No se edita aquí: las demás alternativas se comparan con él.",
+    "elements_one": "{{count}} estrategia",
+    "elements_other": "{{count}} estrategias",
+    "select": "Ver {{name}}",
+    "create": "Crear alternativa",
+    "rename": "Renombrar",
+    "delete": "Eliminar",
+    "actions": "Acciones de {{name}}"
+  },
+  "emptyTitle": "Crea una alternativa para probar una estrategia de fachada",
+  "noBuildingsTitle": "Dibuja o carga tu primer edificio",
+  "goGeometry": "Ir a Geometría",
+  "createDialog": {
+    "title": "Crear alternativa",
+    "name": "Nombre de la alternativa",
+    "placeholder": "Celosía 40 %",
+    "copyFrom": "Partir de",
+    "copyNone": "Solo los edificios (sin estrategias)",
+    "submit": "Crear alternativa",
+    "nameRequired": "Escribe un nombre para la alternativa."
+  },
+  "renameDialog": {
+    "title": "Renombrar alternativa",
+    "submit": "Guardar nombre"
+  },
+  "deleteDialog": {
+    "title": "Eliminar «{{name}}»",
+    "body": "Se borran sus estrategias de fachada y sus resultados. No se puede deshacer.",
+    "submit": "Eliminar alternativa"
+  },
+  "plan": {
+    "label": "Planta de los edificios. Elige una fachada para añadirle una estrategia.",
+    "edge": "Fachada {{index}} de {{building}}, {{length}}",
+    "hint": "Haz clic en el borde de un edificio para elegir esa fachada.",
+    "baseHint": "Elige una alternativa distinta del caso base para añadir estrategias."
+  },
+  "editor": {
+    "title": "Estrategia de fachada",
+    "selected": "Fachada {{index}} de {{building}}",
+    "noSelection": "Elige una fachada en la planta para añadirle una estrategia.",
+    "strategy": "Estrategia",
+    "apply": "Aplicar estrategia",
+    "applying": "Aplicando",
+    "applied": "Estrategia aplicada",
+    "update": "Guardar cambios",
+    "remove": "Quitar estrategia",
+    "removed": "Estrategia quitada",
+    "adjusted": "Se ajustó {{field}} de {{requested}} a {{applied}}: no puede superar la altura del edificio.",
+    "adjustedGeneric": "Se ajustó {{field}} de {{requested}} a {{applied}}."
+  },
+  "elements": {
+    "title": "Estrategias de esta alternativa",
+    "empty": "Aún no hay estrategias. Elige una fachada en la planta.",
+    "item": "{{strategy}} en la fachada {{index}} de {{building}}",
+    "orphaned": "Su fachada ya no existe: no se simula.",
+    "edit": "Editar"
+  },
+  "strategies": {
+    "screen": "Celosía porosa",
+    "fins": "Aletas",
+    "canopy": "Marquesina",
+    "setback": "Retranqueo",
+    "vegetation": "Vegetación"
+  },
+  "strategyHelp": {
+    "screen": "Una pantalla con huecos delante de la fachada. Deja pasar parte del aire y frena el resto.",
+    "fins": "Láminas verticales perpendiculares a la fachada que rompen el viento que baja por ella.",
+    "canopy": "Un voladizo horizontal sobre la acera que desvía el viento que baja por la fachada.",
+    "setback": "Retira los pisos superiores escalonadamente para que el viento no baje hasta la calle.",
+    "vegetation": "Una franja de árboles delante de la fachada que frena el viento con su follaje."
+  },
+  "params": {
+    "porosity": "Porosidad",
+    "height_m": "Altura",
+    "offset_m": "Separación de la fachada",
+    "depth_m": "Profundidad",
+    "pitch_m": "Separación entre aletas",
+    "thickness_m": "Espesor",
+    "overhang_m": "Vuelo",
+    "setback_m": "Retranqueo por piso",
+    "floor_height_m": "Altura de piso",
+    "start_floor": "Desde el piso",
+    "lad_m2_m3": "Densidad de follaje",
+    "width_m": "Ancho de la franja"
+  },
+  "paramHelp": {
+    "porosity": "Parte abierta de la celosía. 40 % deja pasar bastante aire; menos porosidad frena más pero crea más turbulencia detrás.",
+    "height_m": "Altura del elemento desde el suelo. Nunca supera la del edificio.",
+    "offset_m": "Distancia entre la fachada y el elemento.",
+    "depth_m": "Cuánto sobresale cada aleta de la fachada.",
+    "pitch_m": "Distancia entre una aleta y la siguiente.",
+    "thickness_m": "Grosor del elemento.",
+    "overhang_m": "Cuánto sobresale la marquesina hacia la calle.",
+    "setback_m": "Cuánto se retira cada piso respecto al de abajo.",
+    "floor_height_m": "Altura de cada piso.",
+    "start_floor": "Primer piso que se retira.",
+    "lad_m2_m3": "Área de hojas por volumen de copa (m²/m³). 1 es un árbol de follaje medio.",
+    "width_m": "Ancho de la franja de vegetación."
+  },
+  "toast": {
+    "created": "Alternativa creada",
+    "renamed": "Alternativa renombrada",
+    "deleted": "Alternativa eliminada"
+  }
+}

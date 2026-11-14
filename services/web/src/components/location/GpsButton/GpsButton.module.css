@@ -1,0 +1,21 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.note,
+.error {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+  max-width: 44ch;
+}
+
+.note {
+  color: var(--color-ink-muted);
+}
+
+.error {
+  color: var(--color-danger);
+}

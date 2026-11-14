@@ -1,0 +1,27 @@
+.pad {
+  padding: var(--space-6);
+  color: var(--color-ink-muted);
+}
+
+.emptyCard {
+  position: absolute;
+  top: var(--space-6);
+  left: var(--space-6);
+  max-width: 420px;
+  padding: 0 var(--space-6);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+}
+
+.small {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  left: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  background: var(--color-surface-raised);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}

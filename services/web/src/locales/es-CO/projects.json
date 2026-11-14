@@ -1,0 +1,44 @@
+{
+  "title": "Proyectos",
+  "new": "Nuevo proyecto",
+  "emptyTitle": "Crea tu primer proyecto",
+  "emptyLead": "Un proyecto reúne la ubicación, los edificios, el viento del sitio y las alternativas de fachada que quieres comparar.",
+  "columns": {
+    "name": "Nombre",
+    "location": "Ubicación",
+    "updated": "Actualizado",
+    "actions": "Acciones"
+  },
+  "noLocation": "Sin ubicación",
+  "hasLocation": "Ubicación fijada",
+  "shared": "Compartido",
+  "actions": {
+    "open": "Abrir",
+    "rename": "Renombrar",
+    "duplicate": "Duplicar",
+    "delete": "Eliminar"
+  },
+  "create": {
+    "title": "Nuevo proyecto",
+    "name": "Nombre del proyecto",
+    "namePlaceholder": "Edificio de la calle 5",
+    "submit": "Crear proyecto",
+    "nameRequired": "Escribe un nombre para el proyecto."
+  },
+  "renameDialog": {
+    "title": "Renombrar proyecto",
+    "submit": "Guardar nombre"
+  },
+  "deleteDialog": {
+    "title": "Eliminar «{{name}}»",
+    "body": "Se borrarán sus edificios, alternativas, simulaciones e informes. No se puede deshacer.",
+    "submit": "Eliminar proyecto"
+  },
+  "toast": {
+    "created": "Proyecto creado",
+    "renamed": "Proyecto renombrado",
+    "duplicated": "Proyecto duplicado",
+    "deleted": "Proyecto eliminado"
+  },
+  "loadError": "No se pudo cargar la lista de proyectos."
+}

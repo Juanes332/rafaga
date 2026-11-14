@@ -1,0 +1,254 @@
+{
+ "schema_version": "1.0",
+ "units": "m",
+ "frame": "local_enu",
+ "source": {
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "alternative_id": "00000000-0000-4000-8000-000000000002",
+  "geometry_version": 1,
+  "compiled_at": "2026-01-01T00:00:00Z"
+ },
+ "analysis_height_m": 1.5,
+ "ground": {
+  "z0_m": 1.0
+ },
+ "h_max_m": 18.0,
+ "bounds": {
+  "base_min": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "base_max": [
+   58.0,
+   34.0,
+   18.0
+  ],
+  "envelope_m": 10
+ },
+ "solids": [
+  {
+   "id": "b:8ee6870b-91a9-4308-9486-193cbbbdcfd9:t0",
+   "origin": {
+    "kind": "building",
+    "building_id": "8ee6870b-91a9-4308-9486-193cbbbdcfd9",
+    "element_id": null
+   },
+   "footprint": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     40.0,
+     0.0
+    ],
+    [
+     40.0,
+     12.0
+    ],
+    [
+     0.0,
+     12.0
+    ]
+   ],
+   "holes": [],
+   "z_min": 0.0,
+   "z_max": 18.0,
+   "thin_axis_m": null
+  },
+  {
+   "id": "f:151d6882-b95c-47f6-b6c0-efee3087e812:0",
+   "origin": {
+    "kind": "canopy",
+    "building_id": "8ee6870b-91a9-4308-9486-193cbbbdcfd9",
+    "element_id": "151d6882-b95c-47f6-b6c0-efee3087e812"
+   },
+   "footprint": [
+    [
+     40.0,
+     12.0
+    ],
+    [
+     40.0,
+     15.0
+    ],
+    [
+     0.0,
+     15.0
+    ],
+    [
+     0.0,
+     12.0
+    ]
+   ],
+   "z_min": 4.0,
+   "z_max": 4.3,
+   "thin_axis_m": 0.3
+  },
+  {
+   "id": "b:6d25b995-9e6b-4650-93cb-ef69dcce6123:t0",
+   "origin": {
+    "kind": "building",
+    "building_id": "6d25b995-9e6b-4650-93cb-ef69dcce6123",
+    "element_id": null
+   },
+   "footprint": [
+    [
+     0.0,
+     22.0
+    ],
+    [
+     40.0,
+     22.0
+    ],
+    [
+     40.0,
+     34.0
+    ],
+    [
+     0.0,
+     34.0
+    ]
+   ],
+   "holes": [],
+   "z_min": 0.0,
+   "z_max": 18.0,
+   "thin_axis_m": null
+  },
+  {
+   "id": "f:2c3d10cd-a6f0-43eb-870c-409135f6c061:0",
+   "origin": {
+    "kind": "canopy",
+    "building_id": "6d25b995-9e6b-4650-93cb-ef69dcce6123",
+    "element_id": "2c3d10cd-a6f0-43eb-870c-409135f6c061"
+   },
+   "footprint": [
+    [
+     0.0,
+     22.0
+    ],
+    [
+     0.0,
+     19.0
+    ],
+    [
+     40.0,
+     19.0
+    ],
+    [
+     40.0,
+     22.0
+    ]
+   ],
+   "z_min": 4.0,
+   "z_max": 4.3,
+   "thin_axis_m": 0.3
+  },
+  {
+   "id": "b:75d5c675-bb14-44ae-ae69-f35d9bae44df:t0",
+   "origin": {
+    "kind": "building",
+    "building_id": "75d5c675-bb14-44ae-ae69-f35d9bae44df",
+    "element_id": null
+   },
+   "footprint": [
+    [
+     46.0,
+     4.0
+    ],
+    [
+     58.0,
+     4.0
+    ],
+    [
+     58.0,
+     29.0
+    ],
+    [
+     46.0,
+     29.0
+    ]
+   ],
+   "holes": [],
+   "z_min": 0.0,
+   "z_max": 15.0,
+   "thin_axis_m": null
+  }
+ ],
+ "porous": [
+  {
+   "id": "f:758bacc3-fbfe-47fa-9d26-f251c4779757:0",
+   "origin": {
+    "kind": "screen",
+    "building_id": "8ee6870b-91a9-4308-9486-193cbbbdcfd9",
+    "element_id": "758bacc3-fbfe-47fa-9d26-f251c4779757"
+   },
+   "footprint": [
+    [
+     -0.5,
+     12.0
+    ],
+    [
+     -0.6,
+     12.0
+    ],
+    [
+     -0.6,
+     0.0
+    ],
+    [
+     -0.5,
+     0.0
+    ]
+   ],
+   "z_min": 0.0,
+   "z_max": 18.0,
+   "model": "screen",
+   "porosity": 0.4,
+   "thickness_m": 0.1,
+   "loss_coefficient": 8.2317,
+   "normal": [
+    -1.0,
+    -0.0
+   ]
+  },
+  {
+   "id": "f:49391f84-38dc-4be2-a694-77a102d7a077:0",
+   "origin": {
+    "kind": "screen",
+    "building_id": "6d25b995-9e6b-4650-93cb-ef69dcce6123",
+    "element_id": "49391f84-38dc-4be2-a694-77a102d7a077"
+   },
+   "footprint": [
+    [
+     -0.5,
+     34.0
+    ],
+    [
+     -0.6,
+     34.0
+    ],
+    [
+     -0.6,
+     22.0
+    ],
+    [
+     -0.5,
+     22.0
+    ]
+   ],
+   "z_min": 0.0,
+   "z_max": 18.0,
+   "model": "screen",
+   "porosity": 0.4,
+   "thickness_m": 0.1,
+   "loss_coefficient": 8.2317,
+   "normal": [
+    -1.0,
+    -0.0
+   ]
+  }
+ ],
+ "warnings": []
+}

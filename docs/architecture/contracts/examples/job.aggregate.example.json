@@ -1,0 +1,170 @@
+{
+  "contract_version": 1,
+  "job_kind": "aggregate",
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "study_id": "00000000-0000-4000-8000-000000000003",
+  "output_dir": "results/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000003/aggregate-dda38d3d2b5d",
+  "lawson_hash": "dda38d3d2b5d4c3b4440876e79cf434a76f550fc98dcbe66fa1eccaaace218b7",
+  "result_refs": [
+    {
+      "result_id": "00000000-0000-4000-8000-000000000005",
+      "wind_from_deg": 270.0,
+      "dir": "results/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000003/00000000-0000-4000-8000-000000000004"
+    }
+  ],
+  "rose": {
+    "cache_key": "era5:synthetic:10y",
+    "calm_fraction": 0.04,
+    "sectors": [
+      {
+        "center_deg": 0.0,
+        "frequency": 0.03,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 22.5,
+        "frequency": 0.03,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 45.0,
+        "frequency": 0.04,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 67.5,
+        "frequency": 0.05,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 90.0,
+        "frequency": 0.07,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 112.5,
+        "frequency": 0.08,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 135.0,
+        "frequency": 0.07,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 157.5,
+        "frequency": 0.06,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 180.0,
+        "frequency": 0.05,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 202.5,
+        "frequency": 0.05,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 225.0,
+        "frequency": 0.06,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 247.5,
+        "frequency": 0.08,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 270.0,
+        "frequency": 0.09,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 292.5,
+        "frequency": 0.07,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 315.0,
+        "frequency": 0.06,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      },
+      {
+        "center_deg": 337.5,
+        "frequency": 0.07,
+        "weibull_k": 2.0,
+        "weibull_c_ms": 4.0
+      }
+    ]
+  },
+  "site": {
+    "z0_m": 1.0,
+    "z0_ref_m": 0.03,
+    "blending_height_m": 60.0,
+    "analysis_height_m": 1.5
+  },
+  "lawson": {
+    "exceedance": 0.05,
+    "comfort": [
+      {
+        "class": "A",
+        "key": "sitting",
+        "threshold_ms": 4.0
+      },
+      {
+        "class": "B",
+        "key": "standing",
+        "threshold_ms": 6.0
+      },
+      {
+        "class": "C",
+        "key": "strolling",
+        "threshold_ms": 8.0
+      },
+      {
+        "class": "D",
+        "key": "business_walking",
+        "threshold_ms": 10.0
+      }
+    ],
+    "uncomfortable_class": "E",
+    "safety": [
+      {
+        "key": "frail_cyclists",
+        "threshold_ms": 15.0,
+        "exceedance": 0.00025
+      },
+      {
+        "key": "general_public",
+        "threshold_ms": 20.0,
+        "exceedance": 0.00025
+      }
+    ]
+  },
+  "turbulence_intensity_default": 0.25,
+  "output_grid": {
+    "frame": "plan",
+    "origin_x": -68.0,
+    "origin_y": -73.0,
+    "dx_m": 1.0,
+    "nx": 136,
+    "ny": 146
+  }
+}

@@ -1,0 +1,46 @@
+.root {
+  cursor: pointer;
+  outline: none;
+}
+
+.shape {
+  fill: var(--color-surface-raised);
+  fill-opacity: 0.92;
+  stroke: var(--color-ink);
+  stroke-width: 1.25px;
+}
+
+.root:hover .shape {
+  fill: var(--color-surface);
+}
+
+.selected .shape {
+  stroke: var(--color-accent);
+  stroke-width: 2px;
+  fill: var(--color-accent-wash);
+}
+
+.missing .shape {
+  stroke-dasharray: 6 4;
+}
+
+.root:focus-visible .shape {
+  stroke: var(--color-focus-ring);
+  stroke-width: 3px;
+}
+
+.label {
+  fill: var(--color-ink);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
+.height {
+  fill: var(--color-ink-muted);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}

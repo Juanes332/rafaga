@@ -1,0 +1,39 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+}
+
+.list {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.row dt {
+  color: var(--color-ink-muted);
+}
+
+.row dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.note {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}

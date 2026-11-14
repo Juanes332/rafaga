@@ -1,0 +1,93 @@
+# Ráfaga - pila local. Arranque recomendado: ./start.sh (Linux) o start.bat (Windows).
+# Los puertos del host los asigna el kernel (ADR-05): el script start los lee y los guarda en .env.
+name: rafaga
+
+# Opcional: con RAFAGA_IMAGE_REGISTRY en .env, start descarga <registro>/rafaga-<servicio>:<version>
+# en vez de construir. Sin el, las imagenes se construyen localmente con esos mismos nombres.
+x-db-url: &db-url "postgresql://rafaga:${POSTGRES_PASSWORD:-}@db:5432/rafaga"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rafaga
+      POSTGRES_DB: rafaga
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      - rafaga-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rafaga -d rafaga"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  api:
+    image: ${RAFAGA_IMAGE_REGISTRY:+${RAFAGA_IMAGE_REGISTRY}/}rafaga-api:${RAFAGA_VERSION:-1.0.0}
+    build:
+      context: services/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *db-url
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-720}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ALLOWED_ORIGINS: http://localhost:${RAFAGA_WEB_PORT:-0},http://127.0.0.1:${RAFAGA_WEB_PORT:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      RATE_LIMIT_ANON_PER_MINUTE: ${RATE_LIMIT_ANON_PER_MINUTE:-120}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-600}
+      RATE_LIMIT_LOGIN_PER_MINUTE: ${RATE_LIMIT_LOGIN_PER_MINUTE:-10}
+      RATE_LIMIT_TILES_PER_MINUTE: ${RATE_LIMIT_TILES_PER_MINUTE:-1500}
+      DATA_DIR: /data
+      OPEN_METEO_GEOCODING_URL: ${OPEN_METEO_GEOCODING_URL:-https://geocoding-api.open-meteo.com/v1/search}
+      OPEN_METEO_ELEVATION_URL: ${OPEN_METEO_ELEVATION_URL:-https://api.open-meteo.com/v1/elevation}
+      OPEN_METEO_ARCHIVE_URL: ${OPEN_METEO_ARCHIVE_URL:-https://archive-api.open-meteo.com/v1/archive}
+      TILE_URL_TEMPLATE: ${TILE_URL_TEMPLATE:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
+      TILE_USER_AGENT: ${TILE_USER_AGENT:-Rafaga/1.0 (local desktop app)}
+      TILE_CACHE_MAX_MB: ${TILE_CACHE_MAX_MB:-500}
+      MAX_UPLOAD_GEOMETRY_MB: ${MAX_UPLOAD_GEOMETRY_MB:-100}
+      MAX_UPLOAD_IMAGE_MB: ${MAX_UPLOAD_IMAGE_MB:-25}
+      ALTERNATIVES_LIMIT_DEFAULT: ${ALTERNATIVES_LIMIT_DEFAULT:-8}
+      JOB_RETENTION_DAYS: ${JOB_RETENTION_DAYS:-90}
+    volumes:
+      - rafaga-data:/data
+    ports:
+      - "127.0.0.1:${RAFAGA_API_PORT:-0}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  solver:
+    image: ${RAFAGA_IMAGE_REGISTRY:+${RAFAGA_IMAGE_REGISTRY}/}rafaga-solver:${RAFAGA_VERSION:-1.0.0}
+    build:
+      context: services/solver
+    restart: unless-stopped
+    # Sin "ports": el solver solo es accesible desde la red interna de compose.
+    environment:
+      DATABASE_URL: *db-url
+      DATA_DIR: /data
+      RAFAGA_DEVICE: ${RAFAGA_DEVICE:-auto}
+    volumes:
+      - rafaga-data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    image: ${RAFAGA_IMAGE_REGISTRY:+${RAFAGA_IMAGE_REGISTRY}/}rafaga-web:${RAFAGA_VERSION:-1.0.0}
+    build:
+      context: services/web
+    restart: unless-stopped
+    environment:
+      RAFAGA_API_PORT: ${RAFAGA_API_PORT:-0}
+    ports:
+      - "127.0.0.1:${RAFAGA_WEB_PORT:-0}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  rafaga-db: {}
+  rafaga-data: {}

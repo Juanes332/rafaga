@@ -1,0 +1,45 @@
+.root {
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--color-ink);
+}
+
+.ring {
+  fill: none;
+  stroke: var(--color-ink-muted);
+  stroke-width: 1;
+  stroke-dasharray: 1 5;
+}
+
+.needleNorth {
+  fill: var(--color-accent);
+}
+
+.needleSouth {
+  fill: none;
+  stroke: var(--color-ink-muted);
+  stroke-width: 1.2;
+}
+
+/* The halo keeps letters legible over map tiles, the grid and 3D geometry. */
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--color-ink-muted);
+  stroke: var(--color-surface-raised);
+  stroke-width: 3px;
+  paint-order: stroke;
+}
+
+.major {
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--color-ink);
+}
+
+.north {
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--color-accent);
+}

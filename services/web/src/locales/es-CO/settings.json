@@ -1,0 +1,46 @@
+{
+  "title": "Ajustes",
+  "lead": "Estos valores cambian cómo se leen los resultados. Las zonas se recalculan al guardar, sin volver a simular.",
+  "save": "Guardar cambios",
+  "saving": "Guardando",
+  "saved": "Ajustes guardados",
+  "reset": "Descartar cambios",
+  "invalid": "Corrige los campos marcados antes de guardar.",
+  "zones": {
+    "title": "Umbrales de zona",
+    "kAccel": "Aceleración: K mayor que",
+    "kStagnation": "Estancamiento: K menor que",
+    "dkReduction": "Reducción: ΔK menor que",
+    "kAccelHelp": "Por encima de este valor el viento es notablemente más fuerte que en campo abierto.",
+    "kStagnationHelp": "Por debajo de este valor el aire casi no se mueve.",
+    "dkReductionHelp": "Diferencia mínima, negativa, para contar un punto como mejora frente al caso base.",
+    "orderError": "El umbral de estancamiento debe ser menor que el de aceleración."
+  },
+  "lawson": {
+    "title": "Confort Lawson",
+    "exceedance": "Probabilidad de excedencia",
+    "exceedanceHelp": "Porcentaje de horas en que puede superarse el umbral de cada actividad.",
+    "safetyProbability": "Probabilidad de seguridad",
+    "safetyProbabilityHelp": "Porcentaje de horas para los umbrales de riesgo.",
+    "classes": "Umbral por actividad",
+    "safety": "Umbrales de riesgo",
+    "orderError": "Los umbrales deben crecer de una actividad a la siguiente.",
+    "sitting": "Sentarse",
+    "standing": "Estar de pie",
+    "strolling": "Pasear",
+    "business": "Caminar con prisa",
+    "uncomfortable": "Incómodo",
+    "uncomfortableNote": "Incómodo: todo lo que supera el umbral de «Caminar con prisa».",
+    "safety15": "Riesgo para personas frágiles y ciclistas",
+    "safety20": "Riesgo para el público general"
+  },
+  "simulation": {
+    "title": "Simulación",
+    "ti": "Intensidad de turbulencia",
+    "tiHelp": "Agitación del viento usada para el confort cuando la simulación no la calcula (2D).",
+    "cd": "Coeficiente de arrastre de vegetación",
+    "cdHelp": "Cuánto frena el follaje al viento. 0,2 es típico de árboles urbanos.",
+    "limit": "Máximo de alternativas por proyecto",
+    "limitHelp": "Más alternativas permiten probar más ideas, pero ocupan más disco y tiempo de cálculo."
+  }
+}

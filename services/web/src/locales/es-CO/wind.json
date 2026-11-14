@@ -1,0 +1,58 @@
+{
+  "title": "Viento del sitio",
+  "emptyTitle": "Obtén la rosa de vientos del sitio",
+  "emptyLead": "Descarga 10 años de viento histórico para estas coordenadas, o escribe la dirección y la velocidad a mano.",
+  "fetch": "Descargar viento histórico",
+  "fetching": "Descargando viento histórico",
+  "refetch": "Volver a descargar",
+  "fetched": "Rosa de vientos lista",
+  "source": {
+    "label": "Origen del viento",
+    "era5": "Viento histórico (10 años)",
+    "manual": "Dirección y velocidad a mano"
+  },
+  "fromCache": "Datos guardados en este equipo, descargados el {{date}}.",
+  "fetchedAt": "Descargado el {{date}}.",
+  "rose": {
+    "label": "Rosa de vientos: de dónde sopla el viento y con qué frecuencia",
+    "sector": "{{dir}}: {{freq}} del tiempo, velocidad típica {{p50}}",
+    "legend": "Velocidad típica (p50)",
+    "calm": "Calma {{value}}",
+    "north": "N"
+  },
+  "table": {
+    "caption": "Frecuencia y velocidades en m/s por dirección, a 10 m de altura",
+    "direction": "Dirección",
+    "frequency": "Frecuencia",
+    "p50": "Típica (p50)",
+    "p90": "Fuerte (p90)",
+    "max": "Máxima"
+  },
+  "manual": {
+    "title": "Viento escrito a mano",
+    "direction": "Dirección de donde sopla",
+    "directionHelp": "En grados desde el norte, en el sentido del reloj: 0 es norte, 90 es este.",
+    "speed": "Velocidad de referencia a 10 m",
+    "speedHelp": "Velocidad media a 10 m de altura en campo abierto, por ejemplo la de una estación meteorológica.",
+    "summary": "Sopla {{dir}} a {{speed}}."
+  },
+  "terrain": {
+    "label": "Tipo de terreno alrededor",
+    "open_sea": "Mar abierto",
+    "open": "Campo abierto",
+    "suburban": "Suburbano",
+    "urban": "Urbano",
+    "dense_urban": "Urbano denso",
+    "z0": "Rugosidad (z0)"
+  },
+  "density": {
+    "title": "Densidad del aire",
+    "formula": "ρ = 1,225 × (1 − 2,25577·10⁻⁵ × h)^4,2559",
+    "detail": "Con la altitud del sitio h = {{h}}."
+  },
+  "offline": {
+    "manual": "Escribir viento a mano"
+  },
+  "locked": "Fija la ubicación del proyecto para obtener el viento del sitio. Haz clic en el mapa, busca un lugar o escribe las coordenadas.",
+  "goLocation": "Ir a Proyecto"
+}

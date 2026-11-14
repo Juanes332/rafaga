@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rafaga.local/contracts/scene.schema.json",
+  "title": "Rafaga canonical scene",
+  "description": "Geometry handed from api to solver (ADR-04). Produced by api (services/scene) from base buildings + one alternative's facade elements; consumed by solver (services/voxelize). Pure local metric frame: x east, y north, z up, metres, origin = project anchor. Contains NO geographic coordinates. Every primitive is a vertical prism (footprint polygon extruded from z_min to z_max). Facade strategies are already expanded into primitives; the solver never interprets facade parameters. Thin solids (thickness < dx) are kept as solids; the solver applies the sub-grid rule (ADR-13).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "units", "frame", "source", "analysis_height_m", "ground", "h_max_m", "bounds", "solids", "porous", "warnings"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "units": { "const": "m" },
+    "frame": { "const": "local_enu" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "alternative_id", "geometry_version", "compiled_at"],
+      "properties": {
+        "project_id": { "type": "string", "format": "uuid" },
+        "alternative_id": { "type": "string", "format": "uuid" },
+        "geometry_version": { "type": "integer", "minimum": 1 },
+        "compiled_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "analysis_height_m": { "type": "number", "minimum": 0.5, "maximum": 3.0, "description": "Pedestrian analysis height z_a (BR-15)." },
+    "ground": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["z0_m"],
+      "properties": { "z0_m": { "type": "number", "exclusiveMinimum": 0, "maximum": 3.0, "description": "Site aerodynamic roughness length (BR-08)." } }
+    },
+    "h_max_m": { "type": "number", "exclusiveMinimum": 0, "description": "Maximum height over BASE buildings; drives BR-16 domain margins so every alternative of a project shares the same grid (ADR-23)." },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_min", "base_max", "envelope_m"],
+      "description": "Axis-aligned bounds of base buildings in ENU and the fixed facade envelope added around them (FACADE_ENVELOPE_M = 10).",
+      "properties": {
+        "base_min": { "$ref": "#/$defs/point3" },
+        "base_max": { "$ref": "#/$defs/point3" },
+        "envelope_m": { "const": 10 }
+      }
+    },
+    "solids": { "type": "array", "items": { "$ref": "#/$defs/solid" } },
+    "porous": { "type": "array", "items": { "$ref": "#/$defs/porous" } },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "ref"],
+        "properties": {
+          "code": { "enum": ["element_orphaned", "element_degenerate", "setback_tiers_truncated", "below_analysis_height", "above_building_clamped"] },
+          "ref": { "type": "string", "description": "facade element id or building id" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point2": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }], "minItems": 2, "maxItems": 2 },
+    "point3": { "type": "array", "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }], "minItems": 3, "maxItems": 3 },
+    "ring": {
+      "type": "array",
+      "description": "Simple polygon ring, counter-clockwise for outer rings and clockwise for holes, closing vertex NOT repeated, no self-intersection (api validates with shapely).",
+      "items": { "$ref": "#/$defs/point2" },
+      "minItems": 3
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "building_id"],
+      "properties": {
+        "kind": { "enum": ["building", "building_tier", "setback_tier", "fin", "canopy", "screen", "vegetation"] },
+        "building_id": { "type": "string" },
+        "element_id": { "type": ["string", "null"], "description": "facade element id; null for plain buildings" }
+      }
+    },
+    "prism": {
+      "type": "object",
+      "required": ["id", "origin", "footprint", "z_min", "z_max"],
+      "properties": {
+        "id": { "type": "string", "description": "Stable within a scene; e.g. b:<building_id>:t0, f:<element_id>:3" },
+        "origin": { "$ref": "#/$defs/origin" },
+        "footprint": { "$ref": "#/$defs/ring" },
+        "holes": { "type": "array", "items": { "$ref": "#/$defs/ring" }, "default": [] },
+        "z_min": { "type": "number", "minimum": 0 },
+        "z_max": { "type": "number", "maximum": 500 }
+      }
+    },
+    "solid": {
+      "description": "Impermeable prism: buildings, building tiers (imports, setbacks), fins, canopies.",
+      "allOf": [{ "$ref": "#/$defs/prism" }],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": true, "origin": true, "footprint": true, "holes": true, "z_min": true, "z_max": true,
+        "thin_axis_m": { "type": ["number", "null"], "description": "Smallest horizontal dimension (thickness) for fins/canopy edges; lets the solver decide sub-grid treatment without recomputing." }
+      }
+    },
+    "porous": {
+      "oneOf": [
+        {
+          "title": "screen",
+          "description": "Porous screen (celosía). Loss coefficient precomputed by api with Idelchik: zeta = ((0.707*sqrt(1-beta) + 1 - beta)/beta)^2 (ADR-13). Force acts on the velocity component along `normal` and is spread over thickness_m (solver uses max(thickness_m, dx)).",
+          "allOf": [{ "$ref": "#/$defs/prism" }],
+          "unevaluatedProperties": false,
+          "required": ["model", "porosity", "loss_coefficient", "normal", "thickness_m"],
+          "properties": {
+            "id": true, "origin": true, "footprint": true, "holes": true, "z_min": true, "z_max": true,
+            "model": { "const": "screen" },
+            "porosity": { "type": "number", "minimum": 0.05, "maximum": 0.95 },
+            "loss_coefficient": { "type": "number", "exclusiveMinimum": 0 },
+            "normal": { "$ref": "#/$defs/point2", "description": "Unit vector, outward from the building edge, horizontal." },
+            "thickness_m": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "title": "vegetation",
+          "description": "Canopy drag volume: F = -rho * drag_coefficient * lad * |u| u (ADR-13).",
+          "allOf": [{ "$ref": "#/$defs/prism" }],
+          "unevaluatedProperties": false,
+          "required": ["model", "lad_m2_m3", "drag_coefficient"],
+          "properties": {
+            "id": true, "origin": true, "footprint": true, "holes": true, "z_min": true, "z_max": true,
+            "model": { "const": "vegetation" },
+            "lad_m2_m3": { "type": "number", "minimum": 0.1, "maximum": 5.0 },
+            "drag_coefficient": { "type": "number", "exclusiveMinimum": 0, "maximum": 1.0 }
+          }
+        }
+      ]
+    }
+  },
+  "x-generation-rules": {
+    "building": "One solid per building (or one per tier when tiers are present), z_min = tier z_from (0 for plain buildings).",
+    "setback": "Edge edge_index of the building footprint is offset inward by setback_m * k for tier k = 1.. above start_floor; tier k spans [start_floor*floor_height + (k-1)*floor_height, ...] up to building height; the original single solid is replaced by stacked setback_tier solids; a degenerate (invalid or area < 1 m2) tier stops the stack with warning setback_tiers_truncated.",
+    "screen": "Rectangle parallel to the edge, offset outward by offset_m, length = edge length, thickness 0.1 m, z 0..min(height_m, building height).",
+    "fins": "floor((L - thickness)/pitch)+1 rectangles perpendicular to the edge, starting at edge start + pitch/2, depth outward = depth_m, thickness_m wide, z 0..height (default building height). thin_axis_m = thickness_m.",
+    "canopy": "Rectangle along the edge, overhang_m outward, z from height_m to height_m + 0.3, clamped below building height. thin_axis_m = 0.3.",
+    "vegetation": "Rectangle along the edge, starting offset_m outward, width_m deep, z 0..height_m, lad and drag_coefficient = user setting vegetation_cd.",
+    "orphaned": "An element whose building/edge no longer exists is skipped with warning element_orphaned.",
+    "outward": "Outward normal of edge i (CCW ring) = edge direction rotated -90 degrees (right-hand side)."
+  }
+}

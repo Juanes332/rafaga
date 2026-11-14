@@ -1,0 +1,38 @@
+.title {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl-lh);
+  font-weight: 500;
+}
+
+.lead {
+  color: var(--color-ink-muted);
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}
+
+.submit {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+}

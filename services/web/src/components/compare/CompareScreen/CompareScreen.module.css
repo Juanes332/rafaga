@@ -1,0 +1,27 @@
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-ground);
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty {
+  padding: var(--space-8) var(--space-6);
+}
+
+.notice {
+  margin: var(--space-6);
+}
+
+.loading {
+  padding: var(--space-6);
+  color: var(--color-ink-muted);
+}

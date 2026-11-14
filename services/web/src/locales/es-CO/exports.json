@@ -1,0 +1,24 @@
+{
+  "open": "Exportar PNG",
+  "title": "Exportar PNG",
+  "lead": "Genera una imagen a {{dpi}} ppp con leyenda, escala, norte y el aviso de limitaciones.",
+  "layer": "Capa",
+  "layers": {
+    "k": "K (relación de viento)",
+    "zones": "Zonas",
+    "speed": "Velocidad",
+    "delta_k": "ΔK (diferencia con el caso base)",
+    "lawson": "Confort Lawson"
+  },
+  "dpi": "Resolución",
+  "dpiOption": "{{dpi}} ppp",
+  "submit": "Exportar PNG",
+  "running": "Exportando PNG",
+  "progress": "Exportando PNG: {{percent}}",
+  "ready": "PNG listo para descargar",
+  "download": "Descargar PNG",
+  "again": "Exportar otra imagen",
+  "noResults": "No hay resultados en esta vista. Simula una alternativa y abre su resultado para exportarlo.",
+  "failed": "No se pudo generar el PNG.",
+  "deltaHint": "ΔK solo está disponible al comparar dos resultados."
+}

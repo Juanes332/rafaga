@@ -1,0 +1,85 @@
+{
+  "title": "Comparar alternativas",
+  "exit": "Salir",
+  "a": "A",
+  "b": "B",
+  "pickA": "Alternativa A",
+  "pickB": "Alternativa B",
+  "swap": "Intercambiar A y B",
+  "direction": "Viento {{direction}}",
+  "deltaK": "ΔK",
+  "deltaKHelp": "Muestra la diferencia de K de B respecto a A. Morado y rayado cruzado: B reduce el viento.",
+  "zones": "Zonas",
+  "slider": "Posición del comparador",
+  "readoutA": "K en A",
+  "readoutB": "K en B",
+  "readoutDk": "ΔK",
+  "table": {
+    "title": "Áreas por zona y clase de confort",
+    "show": "Mostrar áreas",
+    "hide": "Ocultar áreas",
+    "alternative": "Alternativa",
+    "comfortMissing": "Sin datos de confort: descarga la rosa de vientos en el paso Viento."
+  },
+  "option": "{{alternative}}, {{direction}}",
+  "emptyTitle": "Simula al menos dos alternativas en la misma dirección para compararlas",
+  "goSimulate": "Ir a Simular",
+  "loading": "Preparando la comparación",
+  "incomparable": {
+    "title": "Estos resultados no se pueden comparar",
+    "sentence": "Estos resultados no se pueden comparar porque tienen {{list}}. Simula ambas alternativas con los mismos parámetros.",
+    "and": "y",
+    "kind": "distinto tipo de simulación ({{a}} y {{b}})",
+    "direction": "distinta dirección ({{a}} y {{b}})",
+    "z0": "distinta rugosidad del terreno ({{a}} y {{b}})",
+    "u_ref": "distinta velocidad de referencia ({{a}} y {{b}})",
+    "dx": "distinto tamaño de celda ({{a}} y {{b}})",
+    "grid": "distinta malla de salida",
+    "analysis_height": "distinta altura de análisis ({{a}} y {{b}})",
+    "section": "distinta línea de corte"
+  },
+  "kinds": {
+    "plan2d": "planta 2D",
+    "section2d": "corte vertical",
+    "volume3d": "3D"
+  },
+  "summary": {
+    "title": "{{name}} frente a {{base}}",
+    "region": "Resumen del efecto de la estrategia",
+    "effect": {
+      "protected": "{{name}} reduce el viento un {{pct}} % en la zona protegida ({{area}}).",
+      "reducesAvg": "{{name}} reduce el viento un {{pct}} % en promedio en el área analizada.",
+      "increasesAvg": "{{name}} aumenta el viento un {{pct}} % en promedio en el área analizada.",
+      "same": "{{name}} casi no cambia el viento en el área analizada."
+    },
+    "accel": "Las zonas de aceleración pasan de {{a}} a {{b}}.",
+    "shift": "Unos {{area}} pasan de la clase {{from}} ({{fromName}}) a la clase {{to}} ({{toName}}).",
+    "moved": {
+      "both": "Al menos {{improved}} mejoran de clase y {{worsened}} empeoran.",
+      "improved": "Al menos {{improved}} mejoran de clase.",
+      "worsened": "Al menos {{worsened}} empeoran de clase."
+    },
+    "unsafe": "El área con ráfagas fuertes pasa de {{a}} a {{b}}.",
+    "verdict": {
+      "improves": "Veredicto: mejora frente a {{base}}.",
+      "worsens": "Veredicto: empeora frente a {{base}}.",
+      "neutral": "Veredicto: sin cambio relevante frente a {{base}}."
+    },
+    "verdictLabel": {
+      "improves": "Mejora",
+      "worsens": "Empeora",
+      "neutral": "Sin cambio relevante"
+    },
+    "classes": {
+      "A": "Sentarse",
+      "B": "Estar de pie",
+      "C": "Pasear",
+      "D": "Caminar con prisa",
+      "E": "Incómodo"
+    },
+    "comfortMissing": "Sin datos de confort: el resumen solo incluye el efecto en el viento.",
+    "details": "Cómo se calcula",
+    "detailsMean": "ΔK medio en toda el área: {{pct}}. Se considera sin cambio relevante si |ΔK medio| es menor que {{threshold}} %.",
+    "detailsProtected": "Zona protegida: celdas donde ΔK baja más de {{dk}}; en ellas K medio cambia {{pct}}."
+  }
+}

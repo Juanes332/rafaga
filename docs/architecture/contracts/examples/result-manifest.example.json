@@ -1,0 +1,127 @@
+{
+  "contract_version": 1,
+  "solver_version": "1.0.0",
+  "job_id": "00000000-0000-4000-8000-000000000004",
+  "kind": "plan2d",
+  "direction_deg": 270.0,
+  "dx_m": 1.0,
+  "device": "gpu",
+  "output_grid": {
+    "frame": "plan",
+    "origin_x": -68.0,
+    "origin_y": -73.0,
+    "dx_m": 1.0,
+    "nx": 136,
+    "ny": 146
+  },
+  "stats": {
+    "k_mean": 0.71,
+    "k_max": 1.64,
+    "k_p95": 1.18,
+    "fluid_area_m2": 17256.0
+  },
+  "convergence": {
+    "converged": true,
+    "flow_through_steps": 10400,
+    "spinup_ft": 2.0,
+    "averaged_ft": 2.75,
+    "checks": 11,
+    "rel_change_last": 0.0071,
+    "mean_speed_change_last": 0.0043,
+    "cap_reached": false
+  },
+  "comparability": {
+    "kind": "plan2d",
+    "direction_deg": 270.0,
+    "z0_m": 1.0,
+    "uref_za_ms": 3.821229,
+    "dx_m": 1.0,
+    "output_grid": {
+      "frame": "plan",
+      "origin_x": -68.0,
+      "origin_y": -73.0,
+      "dx_m": 1.0,
+      "nx": 136,
+      "ny": 146
+    },
+    "analysis_height_m": 1.5,
+    "section": null
+  },
+  "comparability_key": "a3b2a89cef7058f386a9d72ebcf4dbb86fc125b86a2336e7842f82d137f90cee",
+  "fields": [
+    {
+      "name": "K",
+      "file": "fields/K.f32",
+      "dtype": "float32",
+      "shape": [
+        146,
+        136
+      ]
+    },
+    {
+      "name": "ux",
+      "file": "fields/ux.f32",
+      "dtype": "float32",
+      "shape": [
+        146,
+        136
+      ]
+    },
+    {
+      "name": "uy",
+      "file": "fields/uy.f32",
+      "dtype": "float32",
+      "shape": [
+        146,
+        136
+      ]
+    },
+    {
+      "name": "speed",
+      "file": "fields/speed.f32",
+      "dtype": "float32",
+      "shape": [
+        146,
+        136
+      ]
+    },
+    {
+      "name": "ti",
+      "file": "fields/ti.f32",
+      "dtype": "float32",
+      "shape": [
+        146,
+        136
+      ]
+    },
+    {
+      "name": "mask",
+      "file": "fields/mask.u8",
+      "dtype": "uint8",
+      "shape": [
+        146,
+        136
+      ]
+    }
+  ],
+  "images": [
+    {
+      "name": "k",
+      "file": "images/k.png"
+    },
+    {
+      "name": "speed",
+      "file": "images/speed.png"
+    },
+    {
+      "name": "zones",
+      "file": "images/zones.png"
+    }
+  ],
+  "warnings": [
+    {
+      "code": "below_analysis_height",
+      "ref": "canopy-1"
+    }
+  ]
+}

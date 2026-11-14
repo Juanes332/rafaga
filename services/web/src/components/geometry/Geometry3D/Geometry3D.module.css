@@ -1,0 +1,68 @@
+.root {
+  position: absolute;
+  inset: 0;
+}
+
+.message {
+  padding: var(--space-6);
+  color: var(--color-ink-muted);
+  max-width: 60ch;
+}
+
+.panel {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-sm);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.select {
+  min-width: 200px;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.swatchBuilding,
+.swatchElement,
+.swatchPorous {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--color-ink);
+}
+
+.swatchBuilding {
+  background: var(--color-surface-raised);
+}
+
+.swatchElement {
+  background: var(--color-ink-muted);
+}
+
+.swatchPorous {
+  background: var(--color-accent);
+  opacity: 0.45;
+}

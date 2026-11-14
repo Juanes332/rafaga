@@ -1,0 +1,45 @@
+{
+  "title": "Usuarios y acceso",
+  "lead": "Crea cuentas locales y decide quién puede ver cada proyecto. Los revisores solo pueden mirar: no editan ni simulan.",
+  "reviewerOnly": "Solo un arquitecto puede gestionar usuarios y accesos. Pide a un arquitecto de tu equipo que te dé acceso a los proyectos que necesitas revisar.",
+  "list": "Usuarios",
+  "columns": {
+    "email": "Correo",
+    "role": "Rol",
+    "created": "Creado",
+    "actions": "Acciones"
+  },
+  "roles": {
+    "architect": "Arquitecto",
+    "reviewer": "Revisor"
+  },
+  "you": "{{email}} (tú)",
+  "create": {
+    "title": "Nuevo usuario",
+    "email": "Correo",
+    "password": "Contraseña inicial",
+    "passwordHint": "Mínimo 10 caracteres. Compártela en persona.",
+    "role": "Rol",
+    "submit": "Crear usuario",
+    "created": "Usuario creado"
+  },
+  "delete": {
+    "action": "Eliminar a {{email}}",
+    "title": "Eliminar a «{{email}}»",
+    "body": "Perderá el acceso a todos los proyectos compartidos. Sus propios proyectos se borrarán.",
+    "submit": "Eliminar usuario",
+    "done": "Usuario eliminado"
+  },
+  "shares": {
+    "title": "Acceso a proyectos",
+    "project": "Proyecto",
+    "pickProject": "Elige un proyecto",
+    "noProjects": "Aún no tienes proyectos que compartir.",
+    "noOthers": "Crea otro usuario para compartir este proyecto.",
+    "grant": "Dar acceso a {{email}}",
+    "granted": "Acceso dado a {{email}}",
+    "revoked": "Acceso retirado a {{email}}",
+    "hasAccess": "Tiene acceso",
+    "noAccess": "Sin acceso"
+  }
+}

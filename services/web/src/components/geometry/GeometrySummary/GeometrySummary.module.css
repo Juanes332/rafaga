@@ -1,0 +1,32 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.title {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+}
+
+.subtitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.remove {
+  align-self: flex-start;
+}

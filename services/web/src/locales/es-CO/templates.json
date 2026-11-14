@@ -1,0 +1,35 @@
+{
+  "title": "Plantillas",
+  "lead": "Una plantilla guarda la rugosidad del terreno, los umbrales, la tabla Lawson y los valores por defecto de las fachadas para reutilizarlos en otro proyecto. Nunca guarda la ubicación.",
+  "emptyTitle": "Guarda tu primera plantilla",
+  "emptyLead": "Configura un proyecto como te gusta y guárdalo aquí para empezar el siguiente igual.",
+  "columns": {
+    "name": "Nombre",
+    "created": "Creada",
+    "actions": "Acciones"
+  },
+  "create": {
+    "title": "Guardar plantilla",
+    "name": "Nombre de la plantilla",
+    "namePlaceholder": "Ladera suburbana",
+    "source": "Tomar el terreno de",
+    "sourceHelp": "Se copian la categoría de terreno y z0 de ese proyecto, y tus umbrales actuales.",
+    "noWind": "Ese proyecto aún no tiene viento configurado: se usará terreno urbano (z0 1,0 m).",
+    "submit": "Guardar plantilla",
+    "saved": "Plantilla guardada",
+    "nameRequired": "Escribe un nombre para la plantilla."
+  },
+  "apply": {
+    "title": "Aplicar «{{name}}»",
+    "action": "Aplicar {{name}}",
+    "project": "Proyecto",
+    "body": "Se reemplazan la rugosidad y los valores por defecto del proyecto. La ubicación no cambia.",
+    "submit": "Aplicar plantilla",
+    "done": "Plantilla aplicada a «{{project}}»",
+    "short": "Aplicar"
+  },
+  "delete": {
+    "action": "Eliminar {{name}}",
+    "done": "Plantilla eliminada"
+  }
+}

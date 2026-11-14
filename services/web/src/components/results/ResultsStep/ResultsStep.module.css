@@ -1,0 +1,11 @@
+.loading {
+  padding: var(--space-6);
+  color: var(--color-ink-muted);
+}
+
+.missing {
+  padding: var(--space-8) var(--space-6);
+  display: grid;
+  gap: var(--space-4);
+  max-width: 72ch;
+}

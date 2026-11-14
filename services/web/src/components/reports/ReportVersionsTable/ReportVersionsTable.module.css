@@ -1,0 +1,19 @@
+.table {
+  min-width: 480px;
+}
+
+.version {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.created_at {
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}
+
+.actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}

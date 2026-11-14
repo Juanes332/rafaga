@@ -1,0 +1,72 @@
+{
+  "appName": "Ráfaga",
+  "disclaimer": "Herramienta de anteproyecto: compara alternativas, no sustituye un ensayo en túnel de viento.",
+  "disclaimerMore": "¿Qué tan fiable es?",
+  "disclaimerNote": "Ráfaga sirve para comparar alternativas y detectar zonas incómodas en etapas de diseño. No reemplaza un ensayo en túnel de viento para proyectos críticos.",
+  "serviceMissing": "No se encuentra el servicio. Ejecuta start de nuevo.",
+  "serviceMissingHelp": "La aplicación no pudo leer su configuración. Vuelve a ejecutar el script start y recarga esta página.",
+  "reload": "Recargar",
+  "loading": "Cargando",
+  "save": "Guardar cambios",
+  "saving": "Guardando",
+  "cancel": "Cancelar",
+  "close": "Cerrar",
+  "delete": "Eliminar",
+  "rename": "Renombrar",
+  "retry": "Reintentar",
+  "back": "Volver",
+  "apply": "Aplicar",
+  "default": "Defecto {{value}}",
+  "range": "Rango {{min}}–{{max}}",
+  "help": "Ayuda",
+  "moreActions": "Más acciones",
+  "theme": {
+    "toggle": "Cambiar tema",
+    "light": "Tema claro",
+    "dark": "Tema oscuro",
+    "system": "Tema del sistema"
+  },
+  "nav": {
+    "projects": "Proyectos",
+    "settings": "Ajustes",
+    "users": "Usuarios",
+    "templates": "Plantillas",
+    "reports": "Informes",
+    "logout": "Cerrar sesión",
+    "account": "Cuenta",
+    "breadcrumb": "Ruta",
+    "skip": "Saltar al contenido"
+  },
+  "compute": {
+    "gpu": "GPU: {{name}}",
+    "cpu": "CPU: {{cores}} núcleos",
+    "cpuUnknown": "CPU",
+    "offline": "Cálculo sin conexión",
+    "healthy": "Servicios en marcha",
+    "unhealthy": "Algún servicio no responde",
+    "statusTitle": "Estado de los servicios",
+    "api": "Servidor",
+    "db": "Base de datos",
+    "solver": "Motor de simulación",
+    "ok": "En marcha",
+    "down": "Sin conexión",
+    "gpuMissing": "No se detectó una GPU NVIDIA, así que las simulaciones usarán la CPU y tardarán más. Si tienes una GPU NVIDIA, revisa el controlador y la sección «GPU» del README."
+  },
+  "readOnly": "Solo lectura: este proyecto está compartido contigo para revisión.",
+  "units": {
+    "m": "m",
+    "ms": "m/s",
+    "percent": "%",
+    "m2": "m²",
+    "kgm3": "kg/m³"
+  },
+  "notFound": "Esta página no existe.",
+  "goProjects": "Ir a Proyectos",
+  "field": {
+    "outOfRange": "Escribe un valor entre {{min}} y {{max}}.",
+    "notNumber": "Escribe un número, por ejemplo 2,5.",
+    "adjusted": "Se ajustó a {{applied}}: {{reason}}",
+    "adjustedNoReason": "Se ajustó a {{applied}} para que quepa en el edificio.",
+    "helpFor": "Ayuda sobre {{label}}"
+  }
+}

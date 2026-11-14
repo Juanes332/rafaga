@@ -1,0 +1,24 @@
+.root {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  pointer-events: none;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-lh);
+  color: var(--color-ink);
+}
+
+.scale {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bar {
+  height: 6px;
+  border: 1.5px solid var(--color-ink);
+  border-top: 0;
+}

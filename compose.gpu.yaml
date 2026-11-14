@@ -1,0 +1,10 @@
+# Override opcional: reserva la GPU NVIDIA para el solver. start lo añade solo si la sonda de GPU pasa (ADR-17).
+services:
+  solver:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -1,0 +1,12 @@
+.title {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg-lh);
+}
+
+.help {
+  color: var(--color-ink-muted);
+}
+
+.action {
+  align-self: flex-start;
+}

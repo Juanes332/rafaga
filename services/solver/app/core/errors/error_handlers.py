@@ -1,0 +1,56 @@
+"""Translate exceptions into the one error contract, inside the factory."""
+
+import logging
+
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.errors.error_contract import AppError, ErrorBody
+
+logger = logging.getLogger(__name__)
+
+
+async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    """Answer a deliberate failure with its own status."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.as_body().model_dump(),
+        headers=exc.headers,
+    )
+
+
+async def _validation_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Answer a malformed request with 422 in the shared shape."""
+    body = ErrorBody(code="validation_error", message="The request is invalid.")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=body.model_dump()
+    )
+
+
+async def _http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    """Reshape framework-raised HTTPExceptions into the contract."""
+    body = ErrorBody(code="http_error", message=str(exc.detail))
+    return JSONResponse(status_code=exc.status_code, content=body.model_dump())
+
+
+async def _unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Answer an unforeseen failure with 500 and leak nothing."""
+    logger.exception("unhandled_error path=%s", request.url.path)
+    body = ErrorBody(code="internal_error", message="The request failed.")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=body.model_dump()
+    )
+
+
+def register_error_handlers(app: FastAPI) -> None:
+    """Attach every handler to the app, called from create_app()."""
+    app.add_exception_handler(AppError, _app_error_handler)
+    app.add_exception_handler(RequestValidationError, _validation_handler)
+    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)
+    app.add_exception_handler(Exception, _unhandled_handler)

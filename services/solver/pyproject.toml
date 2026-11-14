@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers -m 'not integration and not slow and not bench'"
+markers = [
+    "integration: needs a real Postgres (docker); run with -m integration",
+    "slow: physical validation cases (minutes); run with -m slow",
+    "gpu: needs a CUDA GPU through CuPy; skipped with a reason otherwise",
+    "bench: long benchmarks (SOL-18); run with -m bench",
+]

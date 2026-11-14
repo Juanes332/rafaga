@@ -1,0 +1,47 @@
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+}
+
+.sub {
+  color: var(--color-ink-muted);
+}
+
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-4);
+}
+
+.stats dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.warn {
+  font-size: var(--text-sm);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-danger);
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export {
+  align-self: flex-start;
+}

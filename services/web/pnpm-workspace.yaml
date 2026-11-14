@@ -1,0 +1,12 @@
+# pnpm >= 10 refuses to run dependency postinstall scripts unless they are approved
+# here, and `pnpm install` then FAILS with ERR_PNPM_IGNORED_BUILDS. esbuild is Vite's
+# bundler and fetches its platform binary in exactly such a script; msw has a
+# postinstall too. Without this entry the install dies inside the Docker build,
+# where it is least fun to diagnose.
+#
+# The key matters: pnpm 12 reads `allowBuilds` (a name -> true map). The older
+# `onlyBuiltDependencies` list is NOT honoured by pnpm 12 (verified: the install
+# still fails with ERR_PNPM_IGNORED_BUILDS).
+allowBuilds:
+  esbuild: true
+  msw: true

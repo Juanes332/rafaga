@@ -1,0 +1,10 @@
+{
+  "K": "Cuánto más (o menos) viento hay a la altura del peatón comparado con el mismo punto sin edificios. K = 1 igual; K = 1,5, un 50 % más.",
+  "dK": "Diferencia de K entre una alternativa y el caso base. Negativo: la alternativa reduce el viento.",
+  "acceleration": "Zonas donde K supera {{value}}: el viento es notablemente más fuerte que en campo abierto.",
+  "stagnation": "Zonas donde K es menor que {{value}}: el aire casi no se mueve.",
+  "reduction": "Zonas donde la alternativa baja K en más de {{value}} respecto al caso base.",
+  "windRose": "De dónde sopla el viento en el sitio, con qué frecuencia y a qué velocidad, según 10 años de datos históricos.",
+  "roughness": "Qué tan accidentado es el terreno alrededor (z0, en metros). Más rugosidad frena el viento cerca del suelo.",
+  "lawson": "Qué actividades peatonales son cómodas en cada punto según la frecuencia de vientos fuertes."
+}

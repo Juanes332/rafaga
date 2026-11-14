@@ -1,0 +1,24 @@
+{
+  "mean_fps": 59.8,
+  "p5_fps": 59.9,
+  "gpu_renderer": "ANGLE (Intel, Mesa Intel(R) Graphics (RPL-P), OpenGL ES 3.2)",
+  "particles": 16384,
+  "particles_at_start": 16384,
+  "seconds": 20,
+  "warmup_seconds": 5,
+  "viewport": "1920x1080",
+  "headed": true,
+  "long_tasks": 0,
+  "measured_at": "2026-11-14T03:46:40.807Z",
+  "runs": [
+    {
+      "cpu_throttle": 1,
+      "frames": 1196,
+      "meanFps": 59.8,
+      "p5Fps": 59.9,
+      "longTasks": 0,
+      "longTaskMs": 0,
+      "seconds": 20
+    }
+  ]
+}

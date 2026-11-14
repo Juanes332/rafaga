@@ -1,0 +1,214 @@
+{
+  "contract_version": 1,
+  "job_kind": "report",
+  "project_id": "00000000-0000-4000-8000-000000000001",
+  "report_id": "00000000-0000-4000-8000-00000000000a",
+  "version": 1,
+  "output_dir": "reports/00000000-0000-4000-8000-000000000001",
+  "file_name": "rafaga-proyecto-de-prueba-v1.pdf",
+  "snapshot": {
+    "project": {
+      "name": "Proyecto de prueba",
+      "lat": 0.0,
+      "lon": 0.0,
+      "elevation_m": 0.0,
+      "elevation_source": "manual",
+      "air_density_kg_m3": 1.225,
+      "analysis_height_m": 1.5
+    },
+    "wind": {
+      "source": "era5",
+      "period_years": 10,
+      "terrain_category": "urban",
+      "z0_m": 1.0,
+      "rose": {
+        "calm_fraction": 0.04,
+        "sectors": [
+          {
+            "center_deg": 0.0,
+            "frequency": 0.03,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 22.5,
+            "frequency": 0.03,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 45.0,
+            "frequency": 0.04,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 67.5,
+            "frequency": 0.05,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 90.0,
+            "frequency": 0.07,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 112.5,
+            "frequency": 0.08,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 135.0,
+            "frequency": 0.07,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 157.5,
+            "frequency": 0.06,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 180.0,
+            "frequency": 0.05,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 202.5,
+            "frequency": 0.05,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 225.0,
+            "frequency": 0.06,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 247.5,
+            "frequency": 0.08,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 270.0,
+            "frequency": 0.09,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 292.5,
+            "frequency": 0.07,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 315.0,
+            "frequency": 0.06,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          },
+          {
+            "center_deg": 337.5,
+            "frequency": 0.07,
+            "weibull_k": 2.0,
+            "weibull_c_ms": 4.0
+          }
+        ]
+      }
+    },
+    "studies": [
+      {
+        "study_id": "00000000-0000-4000-8000-000000000003",
+        "alternative_name": "Celosía 40 %",
+        "kind": "plan2d",
+        "dx_m": 1.0,
+        "device": "gpu",
+        "results": [
+          {
+            "result_dir": "results/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000003/00000000-0000-4000-8000-000000000004",
+            "wind_from_deg": 270.0,
+            "convergence": {
+              "converged": true
+            }
+          }
+        ],
+        "zone_areas": {
+          "acceleration": {
+            "area_m2": 812.0,
+            "percent": 4.6
+          },
+          "stagnation": {
+            "area_m2": 1290.0,
+            "percent": 7.3
+          }
+        },
+        "comfort_dir": "results/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000003/aggregate-dda38d3d2b5d",
+        "comfort_areas": {
+          "coverage": 1.0,
+          "partial": false,
+          "class_areas": [
+            {
+              "class": "A",
+              "area_m2": 9000.0,
+              "percent": 51.0
+            }
+          ]
+        }
+      }
+    ],
+    "baseline_study_id": null,
+    "thresholds": {
+      "k_accel": 1.2,
+      "k_stagnation": 0.3,
+      "dk_reduction": -0.1
+    },
+    "lawson": {
+      "exceedance": 0.05,
+      "comfort": [
+        {
+          "class": "A",
+          "key": "sitting",
+          "threshold_ms": 4.0
+        },
+        {
+          "class": "B",
+          "key": "standing",
+          "threshold_ms": 6.0
+        },
+        {
+          "class": "C",
+          "key": "strolling",
+          "threshold_ms": 8.0
+        },
+        {
+          "class": "D",
+          "key": "business_walking",
+          "threshold_ms": 10.0
+        }
+      ],
+      "uncomfortable_class": "E",
+      "safety": [
+        {
+          "key": "frail_cyclists",
+          "threshold_ms": 15.0,
+          "exceedance": 0.00025
+        },
+        {
+          "key": "general_public",
+          "threshold_ms": 20.0,
+          "exceedance": 0.00025
+        }
+      ]
+    },
+    "generated_at": "2026-01-01T00:00:00Z",
+    "app_version": "1.0.0",
+    "disclaimer": "Herramienta de anteproyecto: compara alternativas, no sustituye un ensayo en túnel de viento."
+  }
+}

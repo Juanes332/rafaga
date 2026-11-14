@@ -1,0 +1,33 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.title {
+  font-size: var(--text-md);
+  line-height: var(--text-md-lh);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+
+.adjusted {
+  font-size: var(--text-sm);
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}

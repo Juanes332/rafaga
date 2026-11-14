@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+screenshots
+.git
+.gitignore
+.env
+.env.*
+*.log
+.vscode
+.idea
+.DS_Store
+.venv

@@ -1,0 +1,88 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.status {
+  font-weight: 500;
+}
+
+.when {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+  margin-right: auto;
+}
+
+.jobs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.job {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(80px, 1fr) 3.5rem minmax(0, 1.4fr) 12rem;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.dir {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  height: 6px;
+}
+
+.pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.jobStatus {
+  color: var(--color-ink-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.error {
+  grid-column: 1 / -1;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-danger);
+  max-width: 72ch;
+}
+
+@media (max-width: 767px) {
+  .job {
+    grid-template-columns: 6rem 1fr 3rem;
+  }
+  .jobStatus,
+  .actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}

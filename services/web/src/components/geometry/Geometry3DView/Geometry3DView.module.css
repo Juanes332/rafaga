@@ -1,0 +1,10 @@
+.root {
+  position: absolute;
+  inset: 0;
+}
+
+.compass {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+}

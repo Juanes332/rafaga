@@ -1,0 +1,14 @@
+.root {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-lh);
+}
+
+.more summary {
+  display: inline-block;
+  cursor: pointer;
+  color: var(--color-ink-muted);
+}

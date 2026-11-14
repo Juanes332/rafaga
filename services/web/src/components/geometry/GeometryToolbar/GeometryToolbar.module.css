@@ -1,0 +1,23 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  width: 100%;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.unsaved {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  margin-right: var(--space-2);
+}
